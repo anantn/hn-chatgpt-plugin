@@ -1,0 +1,297 @@
+openapi: 3.0.1
+info:
+  title: Hacker News Plugin
+  description: A plugin for searching and summarizing insights from the Hacker News community.
+  version: 0.1.0
+servers:
+  - url: http://localhost:3333
+paths:
+  /search:
+    get:
+      operationId: search
+      summary: Search for content, results are sorted by relevance, then points, then number of comments.
+      parameters:
+        - name: query
+          in: query
+          description: Full-text query
+          schema:
+            type: string
+        - name: tags
+          in: query
+          description: Filter on a specific tag
+          schema:
+            type: string
+            enum:
+              - story
+              - comment
+              - poll
+              - pollopt
+              - show_hn
+              - ask_hn
+              - front_page
+              - author_:USERNAME
+              - story_:ID
+        - name: numericFilters
+          in: query
+          description: Filter on conditions 'created_at_i', 'points', or 'num_comments', using operators '<', '<=', '=', '>', '>='.
+          schema:
+            type: string
+        - name: page
+          in: query
+          description: Page number to start results from
+          schema:
+            type: integer
+        - name: hitsPerPage
+          in: query
+          description: Number of results to include in response
+          schema:
+            type: integer
+      responses:
+        200:
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchResults'
+  /search_by_date:
+    get:
+      operationId: searchByDate
+      summary: Search for content, results are sorted by date, more recent first.
+      parameters:
+        - name: query
+          in: query
+          description: Full-text query
+          schema:
+            type: string
+        - name: tags
+          in: query
+          description: Filter on a specific tag
+          schema:
+            type: string
+            enum:
+              - story
+              - comment
+              - poll
+              - pollopt
+              - show_hn
+              - ask_hn
+              - front_page
+              - author_:USERNAME
+              - story_:ID
+        - name: numericFilters
+          in: query
+          description: Filter on conditions 'created_at_i', 'points', or 'num_comments', using operators '<', '<=', '=', '>', '>='.
+          schema:
+            type: string
+        - name: page
+          in: query
+          description: Page number to start results from
+          schema:
+            type: integer
+        - name: hitsPerPage
+          in: query
+          description: Number of results to include in response
+          schema:
+            type: integer
+      responses:
+        200:
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchResults'
+  /items/{id}:
+    get:
+      operationId: getItem
+      summary: Retrieve a specific item by its ID
+      parameters:
+        - name: id
+          in: path
+          description: The item ID
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Item'
+  /users/{username}:
+    get:
+      operationId: getUser
+      summary: Retrieve a user's profile
+      parameters:
+        - name: username
+          in: path
+          description: The username
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+components:
+  schemas:
+    SearchResults:
+      type: object
+      properties:
+        hits:
+          type: array
+          items:
+            $ref: '#/components/schemas/Hit'
+    Hit:
+      type: object
+      properties:
+        created_at:
+          type: string
+          format: date-time
+        title:
+          type: string
+        url:
+          type: string
+        author:
+          type: string
+        points:
+          type: integer
+        story_text:
+          type: string
+          nullable: true
+        comment_text:
+          type: string
+          nullable: true
+        num_comments:
+          type: integer
+        story_id:
+          type: integer
+          nullable: true
+        story_title:
+          type: string
+          nullable: true
+        story_url:
+          type: string
+          nullable: true
+        parent_id:
+          type: integer
+          nullable: true
+        created_at_i:
+          type: integer
+        _tags:
+          type: array
+          items:
+            type: string
+        objectID:
+          type: string
+        _highlightResult:
+          type: object
+          properties:
+            title:
+              $ref: '#/components/schemas/HighlightResult'
+            url:
+              $ref: '#/components/schemas/HighlightResult'
+            author:
+              $ref: '#/components/schemas/HighlightResult'
+    HighlightResult:
+      type: object
+      properties:
+        value:
+          type: string
+        matchLevel:
+          type: string
+          enum:
+            - none
+            - partial
+            - full
+        fullyHighlighted:
+          type: boolean
+        matchedWords:
+          type: array
+          items:
+            type: string
+    Item:
+      type: object
+      properties:
+        id:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        author:
+          type: string
+        title:
+          type: string
+          nullable: true
+        url:
+          type: string
+          nullable: true
+        text:
+          type: string
+          nullable: true
+        points:
+          type: integer
+        parent_id:
+          type: integer
+          nullable: true
+        children:
+          type: array
+          items:
+            $ref: '#/components/schemas/Comment'
+    Comment:
+      type: object
+      properties:
+        id:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        author:
+          type: string
+        text:
+          type: string
+        points:
+          type: integer
+        parent_id:
+          type: integer
+        children:
+          type: array
+          items:
+            $ref: '#/components/schemas/Comment'
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        about:
+          type: string
+          nullable: true
+        karma:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        avg:
+          type: number
+          format: float
+        delay:
+          type: integer
+          nullable: true
+        submitted:
+          type: integer
+        updated_at:
+          type: string
+          format: date-time
+        submission_count:
+          type: integer
+        comment_count:
+          type: integer
+        created_at_i:
+          type: integer
+        objectID:
+          type: string
