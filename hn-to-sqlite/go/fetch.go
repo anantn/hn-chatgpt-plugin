@@ -15,10 +15,10 @@ import (
 
 const (
 	itemURL    = "https://hacker-news.firebaseio.com/v0/item/%d.json"
-	startID    = 25000
+	startID    = 10000
 	endID      = 1
-	batchSize  = 1000
-	numWorkers = 100
+	batchSize  = 1024
+	numWorkers = 96
 )
 
 type Item struct {
@@ -53,11 +53,8 @@ func fetchItem(id int) (*Item, error) {
 	return &item, err
 }
 
-func insertItem(db *sql.DB, item *Item) error {
-	_, err := db.Exec(`
-INSERT OR IGNORE INTO items (id, deleted, type, by, time, text, dead, parent, poll, url, score, title, parts, descendants)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-`, item.ID, item.Deleted, item.Type, item.By, item.Time, item.Text,
+func insertItem(tx *sql.Tx, item *Item, itemStmt, kidStmt *sql.Stmt) error {
+	_, err := itemStmt.Exec(item.ID, item.Deleted, item.Type, item.By, item.Time, item.Text,
 		item.Dead, item.Parent, item.Poll, item.URL,
 		item.Score, item.Title, strings.Join(intsToStrings(item.Parts), ","), item.Descendants)
 	if err != nil {
@@ -65,10 +62,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	}
 	if item.Kids != nil {
 		for order, kidID := range item.Kids {
-			_, err := db.Exec(`
-INSERT INTO kids (item, kid, display_order)
-VALUES (?, ?, ?)
-`, item.ID, kidID, order)
+			_, err := kidStmt.Exec(item.ID, kidID, order)
 			if err != nil {
 				return err
 			}
@@ -96,6 +90,7 @@ func main() {
 	db.Exec("PRAGMA cache_size = 1000000;")
 	db.Exec("PRAGMA temp_store = MEMORY;")
 	db.Exec("PRAGMA locking_mode = EXCLUSIVE;")
+	db.Exec("PRAGMA mmap_size = 30000000000;")
 
 	itemsToFetch := startID - endID
 	bar := pb.Full.Start(itemsToFetch)
@@ -104,6 +99,28 @@ func main() {
 	var dbLock sync.Mutex
 	sem := make(chan struct{}, numWorkers)
 	for i := startID; i > endID-batchSize; i -= batchSize {
+		// Begin a transaction
+		tx, err := db.Begin()
+		if err != nil {
+			panic(err)
+		}
+		// Prepare the SQL statements
+		itemStmt, err := tx.Prepare(`
+            INSERT OR IGNORE INTO items (id, deleted, type, by, time, text, dead, parent, poll, url, score, title, parts, descendants)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `)
+		if err != nil {
+			panic(err)
+		}
+		defer itemStmt.Close()
+		kidStmt, err := tx.Prepare(`
+            INSERT INTO kids (item, kid, display_order)
+            VALUES (?, ?, ?)
+        `)
+		if err != nil {
+			panic(err)
+		}
+		defer kidStmt.Close()
 		for j := i; j > i-batchSize && j > endID; j-- {
 			wg.Add(1)
 			sem <- struct{}{}
@@ -118,15 +135,17 @@ func main() {
 					fmt.Printf("Error fetching item %d: %v\n", itemID, err)
 					return
 				}
-				dbLock.Lock()
-				err = insertItem(db, item)
-				dbLock.Unlock()
+				err = insertItem(tx, item, itemStmt, kidStmt)
 				if err != nil {
 					fmt.Printf("Error inserting item %d: %v\n", itemID, err)
 				}
 			}(j)
 		}
 		wg.Wait()
+		// Commit the transaction
+		dbLock.Lock()
+		tx.Commit()
+		dbLock.Unlock()
 	}
 	bar.Finish()
 	fmt.Println("Completed fetching items")
