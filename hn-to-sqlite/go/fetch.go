@@ -15,7 +15,7 @@ import (
 
 const (
 	itemURL    = "https://hacker-news.firebaseio.com/v0/item/%d.json"
-	startID    = 10000
+	startID    = 35662053
 	endID      = 1
 	batchSize  = 1024
 	numWorkers = 96

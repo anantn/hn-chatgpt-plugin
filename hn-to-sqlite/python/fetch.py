@@ -4,7 +4,7 @@ import aiosqlite
 from tqdm import tqdm
 
 ITEM_URL = "https://hacker-news.firebaseio.com/v0/item/{id}.json"
-START_ID = 30000
+START_ID = 35662053
 END_ID = 1
 BATCH_SIZE = 2048
 NUM_WORKERS = 256
