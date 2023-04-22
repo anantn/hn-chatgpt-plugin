@@ -3,15 +3,15 @@
 curl -fsSL https://deb.nodesource.com/setup_19.x | sudo -E bash - &&\
 sudo apt-get install -y nodejs wget screen
 
-cd /home/ec2-user
+cd /home/ubuntu
 wget https://proness.kix.in/misc/hn/fetch.js
 wget https://proness.kix.in/misc/hn/package.json
 npm install
 
 # Calculate start and end item IDs for each instance
 index=$(curl -s http://169.254.169.254/latest/meta-data/ami-launch-index)
-total_items=35662762
-items_per_instance=$((total_items / 16))
+total_items=35663259
+items_per_instance=$((total_items / 32))
 start_id=$((total_items - items_per_instance * index))
 
 if [ $index -eq 15 ]; then
