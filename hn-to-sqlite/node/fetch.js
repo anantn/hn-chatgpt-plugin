@@ -1,11 +1,13 @@
-import { initializeApp } from "firebase/app";
+import { initializeApp, deleteApp } from "firebase/app";
 import { getDatabase, ref, child, get } from "firebase/database";
 import sqlite3 from "sqlite3";
 import { promisify } from "util";
 import ProgressBar from "progress";
+import { create } from "domain";
 
-const START_ID = 35662053;
-const END_ID = 1;
+const args = process.argv.slice(2);
+const START_ID = parseInt(args[0]);
+const END_ID = parseInt(args[1]);
 const BATCH_SIZE = 2048;
 const NUM_WORKERS = 256;
 
@@ -45,8 +47,56 @@ async function insertItemsBatch(db, itemsBatch) {
     }
 }
 
+
+function createTables(db) {
+    db.run(`
+    CREATE TABLE IF NOT EXISTS items (
+        id INTEGER PRIMARY KEY,
+        deleted BOOLEAN,
+        type TEXT,
+        by TEXT,
+        time INTEGER,
+        text TEXT,
+        dead BOOLEAN,
+        parent INTEGER,
+        poll INTEGER,
+        url TEXT,
+        score INTEGER,
+        title TEXT,
+        parts TEXT,
+        descendants INTEGER
+    ) WITHOUT ROWID;
+  `);
+
+    db.run(`
+    CREATE TABLE IF NOT EXISTS kids (
+        item INTEGER,
+        kid INTEGER,
+        display_order INTEGER,
+        FOREIGN KEY (item) REFERENCES items (id),
+        FOREIGN KEY (kid) REFERENCES items (id)
+    );
+  `);
+
+    db.run(`
+    CREATE TABLE IF NOT EXISTS users (
+        id TEXT PRIMARY KEY,
+        created INTEGER,
+        karma INTEGER,
+        about TEXT,
+        submitted TEXT
+    );
+  `);
+}
+
 async function main() {
+    if (!START_ID || !END_ID || START_ID < END_ID) {
+        console.error("Error: START_ID must be greater than END_ID.");
+        process.exit(1);
+    }
+
     const db = new sqlite3.Database("hn_data.db");
+    createTables(db);
 
     const exec = promisify(db.exec).bind(db);
     await exec("PRAGMA synchronous = OFF;");
@@ -85,7 +135,8 @@ async function main() {
         bar.tick(itemsBatch.length);
     }
 
-    db.close();
+    await db.close();
+    await deleteApp(app);
 }
 
 await main();
