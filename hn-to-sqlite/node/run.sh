@@ -14,7 +14,7 @@ total_items=35663259
 items_per_instance=$((total_items / 32))
 start_id=$((total_items - items_per_instance * index))
 
-if [ $index -eq 15 ]; then
+if [ $index -eq 31 ]; then
   end_id=1
 else
   end_id=$((start_id - items_per_instance + 1))
