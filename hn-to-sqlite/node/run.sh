@@ -1,7 +1,7 @@
 #!/bin/bash
 
 curl -fsSL https://deb.nodesource.com/setup_19.x | sudo -E bash - &&\
-sudo apt-get install -y nodejs wget screen
+sudo apt-get install -y nodejs wget screen awscli sqlite3
 
 cd /home/ubuntu
 wget https://proness.kix.in/misc/hn/fetch.js
