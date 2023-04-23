@@ -4,8 +4,8 @@ curl -fsSL https://deb.nodesource.com/setup_19.x | sudo -E bash - &&\
 sudo apt-get install -y nodejs wget screen awscli sqlite3
 
 cd /home/ubuntu
-wget https://proness.kix.in/misc/hn/fetch.js
-wget https://proness.kix.in/misc/hn/package.json
+wget https://raw.githubusercontent.com/anantn/chatgpt-hn-plugin/main/hn-to-sqlite/node/fetch.js
+wget https://raw.githubusercontent.com/anantn/chatgpt-hn-plugin/main/hn-to-sqlite/node/package.json
 npm install
 
 # Calculate start and end item IDs for each instance
