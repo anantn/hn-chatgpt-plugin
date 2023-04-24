@@ -1,7 +1,7 @@
 openapi: 3.0.1
 info:
-  title: Hacker News Plugin
-  description: A plugin for searching and summarizing insights from the Hacker News community.
+  title: HN - Algolia
+  description: A plugin for searching and summarizing insights from the Hacker News community via the Algolia search API.
   version: 0.1.0
 servers:
   - url: http://localhost:3333
@@ -36,11 +36,6 @@ paths:
           description: Filter on conditions 'created_at_i', 'points', or 'num_comments', using operators '<', '<=', '=', '>', '>='.
           schema:
             type: string
-        - name: page
-          in: query
-          description: Page number to start results from
-          schema:
-            type: integer
         - name: hitsPerPage
           in: query
           description: Number of results to include in response
@@ -83,11 +78,6 @@ paths:
           description: Filter on conditions 'created_at_i', 'points', or 'num_comments', using operators '<', '<=', '=', '>', '>='.
           schema:
             type: string
-        - name: page
-          in: query
-          description: Page number to start results from
-          schema:
-            type: integer
         - name: hitsPerPage
           in: query
           description: Number of results to include in response
@@ -103,7 +93,7 @@ paths:
   /items/{id}:
     get:
       operationId: getItem
-      summary: Retrieve a specific item by its ID
+      summary: Retrieve a specific story or comment by its ID
       parameters:
         - name: id
           in: path
@@ -121,7 +111,7 @@ paths:
   /users/{username}:
     get:
       operationId: getUser
-      summary: Retrieve a user's profile
+      summary: Retrieve a specific user's profile
       parameters:
         - name: username
           in: path

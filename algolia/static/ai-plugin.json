@@ -1,9 +1,9 @@
 {
     "schema_version": "v1",
-    "name_for_human": "Hacker News Plugin",
-    "name_for_model": "hackernews",
-    "description_for_human": "Plugin for searching and summarizing insights from the Hacker News community",
-    "description_for_model": "Plugin for searching and summarizing insights from the Hacker News community",
+    "name_for_human": "HN - Algolia",
+    "name_for_model": "hn_algolia",
+    "description_for_human": "Plugin for searching and summarizing insights from the Hacker News community via Algolia",
+    "description_for_model": "Plugin for searching and summarizing insights from the Hacker News community via the Algolia search API",
     "auth": {
         "type": "none"
     },
@@ -12,7 +12,7 @@
         "url": "http://localhost:3333/openapi.yaml",
         "is_user_authenticated": false
     },
-    "logo_url": "https://news.ycombinator.com/y18.gif",
+    "logo_url": "http://localhost:3333/logo.png",
     "contact_email": "anant@kix.in",
     "legal_info_url": "https://www.ycombinator.com/legal/"
 }

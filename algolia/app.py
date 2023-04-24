@@ -21,6 +21,11 @@ def serve_openapi_yaml():
     return send_from_directory(os.path.dirname(__file__), 'static/openapi.yaml')
 
 
+@app.route('/logo.png')
+def serve_logo():
+    return send_from_directory(os.path.dirname(__file__), 'static/logo.png')
+
+
 def proxy_request(endpoint):
     url = ALGOLIA_API_URL + endpoint
     response = requests.get(url, params=request.args)

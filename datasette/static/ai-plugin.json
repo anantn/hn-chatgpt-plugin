@@ -1,0 +1,18 @@
+{
+    "schema_version": "v1",
+    "name_for_human": "HN - Datasette",
+    "name_for_model": "hn_datasette",
+    "description_for_human": "Plugin for searching and summarizing insights from the Hacker News community via Datasette",
+    "description_for_model": "Run SQLite queries against the Hacker News database.\nSupports most SQLite syntax but does not support PRAGMA statements.\nThese are the schemas for the tables: CREATE TABLE items (\nid INTEGER PRIMARY KEY,\ndeleted BOOLEAN,\ntype TEXT,\nby TEXT,\ntime INTEGER,\ntext TEXT,\ndead BOOLEAN,\nparent INTEGER,\npoll INTEGER,\nurl TEXT,\nscore INTEGER,\ntitle TEXT,\nparts TEXT,\ndescendants INTEGER\nWITHOUT ROWID;\nCREATE TABLE kids (\nitem INTEGER,\nkid INTEGER,\ndisplay_order INTEGER,\nFOREIGN KEY (item) REFERENCES items (id),\nFOREIGN KEY (kid) REFERENCES items (id),\nUNIQUE(item, kid)\nCREATE TABLE users (\nid TEXT PRIMARY KEY,\ncreated INTEGER,\nkarma INTEGER,\nabout TEXT,\nsubmitted TEXT);",
+    "auth": {
+        "type": "none"
+    },
+    "api": {
+        "type": "openapi",
+        "url": "http://localhost:8000/openapi.yaml",
+        "is_user_authenticated": false
+    },
+    "logo_url": "http://localhost:8000/yc.jpg",
+    "contact_email": "anant@kix.in",
+    "legal_info_url": "https://www.ycombinator.com/legal/"
+}

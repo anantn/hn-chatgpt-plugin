@@ -1,0 +1,40 @@
+openapi: 3.0.1
+info:
+  title: HN - Datasette
+  description: A datasette API server to execute SQL queries against the Hacker News database and return the results as JSON
+  version: 'v1'
+servers:
+  - url: http://localhost:8000
+paths:
+  /api:
+    get:
+      operationId: query
+      summary: Execute a SQLite SQL query against the Hacker News content database
+      parameters:
+      - name: sql
+        in: query
+        description: The SQL query to be executed
+        required: true
+        schema:
+          type: string
+      - name: _shape
+        in: query
+        description: The shape of the response data. Must be "array"
+        required: true
+        schema:
+          type: string
+          enum:
+            - array
+      responses:
+        '200':
+          description: Successful SQL results
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+        '400':
+          description: Bad request
+        '500':
+          description: Internal server error
