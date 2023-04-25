@@ -88,6 +88,14 @@ function createTables(db) {
         submitted TEXT
     );
   `);
+
+    // These indexes were created manually
+    // CREATE INDEX idx_items_type ON items(type);
+    // CREATE INDEX idx_items_by ON items(by);
+    // CREATE INDEX idx_items_time ON items(time);
+    // CREATE INDEX idx_items_parent ON items(parent);
+    // CREATE INDEX idx_items_score ON items(score);
+    // CREATE INDEX idx_kids_item ON kids(item);
 }
 
 function usage() {
