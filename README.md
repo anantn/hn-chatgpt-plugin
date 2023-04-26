@@ -8,6 +8,8 @@ As of early April 2023, Hacker News contained 35,663,259 items of content (story
 
 The data isn't that large, and can be fetched through the [Firebase API](https://github.com/HackerNews/API).
 
+👉 [**Download the SQLite DB from 🤗**](https://huggingface.co/datasets/anantn/hacker-news/tree/main).
+
 I tried a bunch of different methods to maximize download throughput: [python](hn-to-sqlite/python), [go](hn-to-sqlite/go), and [node.js](hn-to-sqlite/node). Ultimately node was the most robust and reliable (though not the fastest) mechanism. It's possible to parallelize the download process &mdash; which I did &mdash; and ended up merging the databases.
 
 * [fetch.js](hn-to-sqlite/node/fetch.js) is the core download script.
@@ -15,7 +17,7 @@ I tried a bunch of different methods to maximize download throughput: [python](h
 * [fetch-users.js](hn-to-sqlite/node/fetch-users.js) is a script to fetch user data profiles, can be done on a single machine.
 * [merge.py](hn-to-sqlite/python/merge.py) can be used to merge each partition into a single sqlite file.
 
-The final output is a sqlite file that's ~25GB. It compressed down to ~5GB with zstd &mdash; [download it from HuggingFace](https://huggingface.co/datasets/anantn/hacker-news/tree/main). This db includes indexes on some common fields, if you want to reduce the size further you can always `DROP INDEX`.
+The final output is a sqlite file that's ~25GB. It compressed down to ~5GB with zstd which is the version hosted on HuggingFace. This includes indexes on some common fields, if you want to reduce the size further you can always `DROP INDEX`.
 
 Decompressing it should take less than a minute on a good computer with an SSD:
 
