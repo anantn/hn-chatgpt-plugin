@@ -10,3 +10,5 @@ torch
 tqdm
 rich
 faiss-cpu==1.7.4
+InstructorEmbedding==1.0.0
+psutil==5.9.5
