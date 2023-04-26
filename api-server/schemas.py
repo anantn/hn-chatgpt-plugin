@@ -4,6 +4,7 @@ from models import ItemType
 
 class ItemBase(BaseModel):
     title: Optional[str] = None
+    time: int = 0
     url: Optional[str] = None
     text : Optional[str] = None
     score: Optional[int]

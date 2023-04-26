@@ -24,10 +24,19 @@ class ItemType(enum.Enum):
     poll = 'poll'
     pollopt = 'pollopt'
 
+class SortBy(enum.Enum):
+    score = 'score'
+    time = 'time'
+
+class Order(enum.Enum):
+    asc = 'asc'
+    desc = 'desc'
+
 class Item(Base):
     __tablename__ = "items"
 
     id = Column(Integer, primary_key=True)
+    time = Column(Integer)
     title = Column(String)
     url = Column(String)
     text = Column(String)

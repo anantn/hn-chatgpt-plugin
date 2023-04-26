@@ -36,7 +36,10 @@ async def read_item(item_id: int, q: Union[str, None] = None, db: Session = Depe
 def read_items(type: Union[models.ItemType, None] = None,
                query: Union[str, None] = None,
                by: Union[str, None] = None,
+               sort_by: Union[models.SortBy, None] = None,
+               order: Union[models.Order, None] = None,
                skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     items = crud.get_items(db, skip=skip, limit=limit,
-                           type=type, query=query, by=by)
+                           type=type, query=query, by=by, sort_by=sort_by,
+                           order=order)
     return items
