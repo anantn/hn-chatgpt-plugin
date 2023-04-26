@@ -27,6 +27,6 @@ async def read_item(item_id: int, q: Union[str, None] = None, db: Session = Depe
     return crud.get_item(db, item_id)
 
 @app.get("/items/", response_model=list[schemas.Item])
-def read_items(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    items = crud.get_items(db, skip=skip, limit=limit)
+def read_items(type: Union[models.ItemType, None] = None ,skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+    items = crud.get_items(db, skip=skip, limit=limit, type=type)
     return items

@@ -8,7 +8,7 @@ class ItemBase(BaseModel):
     text : Optional[str] = None
     score: Optional[int]
     type: ItemType
-    by: str
+    by: Optional[str] = None
 
 class UserBase(BaseModel):
     id: str
