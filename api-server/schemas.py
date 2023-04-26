@@ -1,11 +1,13 @@
 from pydantic import BaseModel
 from typing import Optional
+from models import ItemType
 
 class ItemBase(BaseModel):
     title: Optional[str] = None
     url: Optional[str] = None
     text : Optional[str] = None
     score: Optional[int]
+    type: ItemType
     by: str
 
 class UserBase(BaseModel):
