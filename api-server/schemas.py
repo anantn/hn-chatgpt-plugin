@@ -4,6 +4,8 @@ from typing import Optional
 class ItemBase(BaseModel):
     title: Optional[str] = None
     url: Optional[str] = None
+    text : Optional[str] = None
+    score: Optional[int]
     by: str
 
 class UserBase(BaseModel):

@@ -22,6 +22,8 @@ class Item(Base):
     id = Column(Integer, primary_key=True)
     title = Column(String)
     url = Column(String)
+    text = Column(String)
+    score = Column(Integer)
     by = Column(Integer, ForeignKey("users.id"))
 
     author = relationship("User", back_populates="items")
