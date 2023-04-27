@@ -20,6 +20,7 @@ class UserBase(BaseModel):
 
 class Item(ItemBase):
     id: int
+    kids: list['Item'] = []
     class Config:
         orm_mode = True
 

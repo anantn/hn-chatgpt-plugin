@@ -1,5 +1,5 @@
-from sqlalchemy import Column, ForeignKey, Integer, String, Enum
-from sqlalchemy.orm import relationship
+from sqlalchemy import Column, ForeignKey, Integer, String, Enum, Table
+from sqlalchemy.orm import relationship, backref
 
 from database import Base
 import enum
@@ -32,6 +32,15 @@ class Order(enum.Enum):
     asc = 'asc'
     desc = 'desc'
 
+# Define an assoc table
+association_table = Table(
+    "kids",
+    Base.metadata,
+    Column("item", Integer, ForeignKey("items.id")),
+    Column("kid", Integer, ForeignKey("items.id")),
+    Column("display_order", Integer)
+)
+
 class Item(Base):
     __tablename__ = "items"
 
@@ -45,3 +54,6 @@ class Item(Base):
     by = Column(Integer, ForeignKey("users.id"))
 
     author = relationship("User", back_populates="items")
+    kids = relationship("Item", secondary=association_table,
+                        primaryjoin=id == association_table.c.item,
+                        secondaryjoin=id == association_table.c.kid)
