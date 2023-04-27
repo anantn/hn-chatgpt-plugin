@@ -26,8 +26,39 @@ def get_db():
 async def read_root():
     return {"Hello": "World"}
 
-# TODO(ruravi): split into multiple paths.
+
 # TODO(ruravi): Boolean flag to include kids.
+@app.get("/stories", response_model=list[schemas.Item])
+def get_stories(by: Union[str, None] = None,
+               sort_by: Union[models.SortBy, None] = None,
+               order: Union[models.Order, None] = None,
+               skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+    items = crud.get_items(db, skip=skip, limit=limit,
+                           type=models.ItemType.story, by=by, sort_by=sort_by,
+                           order=order)
+    return items
+
+@app.get("/comments", response_model=list[schemas.Item])
+def get_comments(by: Union[str, None] = None,
+               sort_by: Union[models.SortBy, None] = None,
+               order: Union[models.Order, None] = None,
+               skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+    items = crud.get_items(db, skip=skip, limit=limit,
+                           type=models.ItemType.comment, by=by, sort_by=sort_by,
+                           order=order)
+    return items
+
+@app.get("/polls", response_model=list[schemas.Item])
+def get_polls(by: Union[str, None] = None,
+               sort_by: Union[models.SortBy, None] = None,
+               order: Union[models.Order, None] = None,
+               skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+    items = crud.get_items(db, skip=skip, limit=limit,
+                           type=models.ItemType.poll, by=by, sort_by=sort_by,
+                           order=order)
+    return items
+
+
 
 @app.get("/items/", response_model=list[schemas.Item])
 def read_items(type: Union[models.ItemType, None] = None,

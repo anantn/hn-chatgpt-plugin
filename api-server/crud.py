@@ -18,9 +18,10 @@ def get_items(db: Session, skip: int = 0, limit: int = 100,
               query: Optional[str] = None,
               by: Optional[str] = None,
               sort_by: Optional[models.SortBy] = None,
-              order: models.Order = models.Order.desc):
+              order: models.Order = models.Order.desc,
+              fields = [models.Item.title, models.Item.text, models.Item.url, models.Item.by]):
     # TODO(ruravi): IN clause.
-    db_query = db.query(models.Item)
+    db_query = db.query(models.Item, *fields)
     if type is not None:
         db_query = db_query.filter(models.Item.type == type)
     if query is not None:
