@@ -21,6 +21,11 @@ const insertItem = promisify(db.run).bind(db);
 const insertKid = promisify(db.run).bind(db);
 const insertUser = promisify(db.run).bind(db);
 
+function logWithTimestamp(...args) {
+    const timestamp = new Date().toLocaleString();
+    console.log(`[${timestamp}]`, ...args);
+}
+
 async function getMaxItemId() {
     const snapshot = await get(child(dbRef, `v0/maxitem`));
     return snapshot.val();
@@ -112,10 +117,12 @@ async function processUpdates(updatesArray) {
     // Fetch and insert all items as a batch
     const fetchedItems = await Promise.all(items.map(fetchItem));
     await insertItems(fetchedItems);
+    logWithTimestamp(`Updated ${fetchedItems.length} items.`);
 
     // Fetch and insert all user profiles as a batch
     const fetchedProfiles = await Promise.all(profiles.map(fetchUser));
     await insertUsers(fetchedProfiles);
+    logWithTimestamp(`Updated ${fetchedProfiles.length} profiles.`);
 }
 
 async function watchUpdates() {
@@ -135,14 +142,14 @@ async function watchUpdates() {
     // Wait for the initial fetch to complete before processing buffered updates.
     await initialFetchComplete;
     initialFetchCompleted = true;
-    console.log("Finished initial fetch, now processing buffered updates.");
+    logWithTimestamp("Finished initial fetch, now processing buffered updates.");
     await processUpdates(buffer);
     buffer = [];
-    console.log("Finished processing buffered updates, now watching for new updates.");
+    logWithTimestamp("Finished processing buffered updates, now watching for new updates.");
 }
 
 function handleShutdown() {
-    console.log("\nGracefully shutting down...");
+    logWithTimestamp("\nGracefully shutting down...");
 
     // Close the SQLite database connection
     db.close((err) => {
@@ -150,12 +157,12 @@ function handleShutdown() {
             console.error("Error closing SQLite database:", err);
             process.exit(1);
         }
-        console.log("SQLite database connection closed.");
+        logWithTimestamp("SQLite database connection closed.");
     });
 
     // Close the Firebase connection
     deleteApp(app);
-    console.log("Firebase connection closed.");
+    logWithTimestamp("Firebase connection closed.");
 
     process.exit(0);
 }
@@ -170,9 +177,9 @@ async function main() {
     const maxItemIdFromDb = await getMaxItemIdFromDb();
     const startId = Math.max(maxItemIdFromDb - OFFSET, 1);
 
-    console.log(`Fetching items from ID ${startId} to ${maxItemId}`);
+    logWithTimestamp(`Fetching items from ID ${startId} to ${maxItemId}`);
     await fetchAndInsertItems(startId, maxItemId);
-    console.log(`Finished initial fetch, now inserting updates (buffered ${buffer.length}).`);
+    logWithTimestamp(`Finished initial fetch, now inserting updates (buffered ${buffer.length}).`);
 
     // Signal that the initial fetch is complete.
     resolveInitialFetch();
