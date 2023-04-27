@@ -26,6 +26,8 @@ def get_db():
 async def read_root():
     return {"Hello": "World"}
 
+# TODO(ruravi): split into multiple paths.
+# TODO(ruravi): Boolean flag to include kids.
 
 @app.get("/items/", response_model=list[schemas.Item])
 def read_items(type: Union[models.ItemType, None] = None,

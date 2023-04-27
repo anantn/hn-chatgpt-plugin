@@ -56,4 +56,5 @@ class Item(Base):
     author = relationship("User", back_populates="items")
     kids = relationship("Item", secondary=association_table,
                         primaryjoin=id == association_table.c.item,
-                        secondaryjoin=id == association_table.c.kid)
+                        secondaryjoin=id == association_table.c.kid,
+                        order_by=association_table.c.display_order)
