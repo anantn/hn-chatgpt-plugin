@@ -147,7 +147,7 @@ def main():
 
     db_path = sys.argv[1]
     expanded_db_path = os.path.expanduser(db_path)
-    conn = sqlite3.connect(expanded_db_path)
+    conn = sqlite3.connect(f"file:{expanded_db_path}?mode=ro", uri=True)
     conn.row_factory = sqlite3.Row
 
     prefix = os.path.splitext(expanded_db_path)[0]
