@@ -27,15 +27,20 @@ async def read_root():
     return {"Hello": "World"}
 
 
-# TODO(ruravi): Boolean flag to include kids.
 @app.get("/stories", response_model=list[schemas.Item])
 def get_stories(by: Union[str, None] = None,
                sort_by: Union[models.SortBy, None] = None,
                order: Union[models.Order, None] = None,
+               include_children: bool = True,
                skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+    fields = [] # If include_children, return all default fields.
+    if not include_children:
+        # Otherwise specify just 4 fields to return
+        fields = [models.Item.title, models.Item.text, models.Item.url, models.Item.by]
     items = crud.get_items(db, skip=skip, limit=limit,
-                           type=models.ItemType.story, by=by, sort_by=sort_by,
-                           order=order)
+                           type=models.ItemType.story, 
+                           fields=fields,
+                           by=by, sort_by=sort_by, order=order)
     return items
 
 @app.get("/comments", response_model=list[schemas.Item])
