@@ -138,8 +138,12 @@ def fetch_last_processed_story(conn):
 
 def main():
     if len(sys.argv) < 2:
-        print("Usage: python embed.py <db_path>")
+        print("Usage: python embed.py <db_path> <optional: offset>")
         sys.exit(1)
+
+    offset = 0
+    if len(sys.argv) == 3:
+        offset = int(sys.argv[2])
 
     db_path = sys.argv[1]
     expanded_db_path = os.path.expanduser(db_path)
@@ -168,7 +172,8 @@ def main():
     # Fetch the last processed story
     last_processed_story = fetch_last_processed_story(embeddings_conn)
     if last_processed_story:
-        print(f"Resuming from story {last_processed_story}")
+        last_processed_story = last_processed_story-offset
+        print(f"Resuming from story {last_processed_story} (offset: {offset})")
         constraint += f" AND id > {last_processed_story}"
 
     cursor.execute(f"SELECT COUNT(*) {constraint}")

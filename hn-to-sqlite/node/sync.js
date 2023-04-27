@@ -117,12 +117,12 @@ async function processUpdates(updatesArray) {
     // Fetch and insert all items as a batch
     const fetchedItems = await Promise.all(items.map(fetchItem));
     await insertItems(fetchedItems);
-    logWithTimestamp(`Updated ${fetchedItems.length} items.`);
 
     // Fetch and insert all user profiles as a batch
     const fetchedProfiles = await Promise.all(profiles.map(fetchUser));
     await insertUsers(fetchedProfiles);
-    logWithTimestamp(`Updated ${fetchedProfiles.length} profiles.`);
+
+    logWithTimestamp(`Updated ${fetchedItems.length} items and ${fetchedProfiles.length} profiles.`);
 }
 
 async function watchUpdates() {
