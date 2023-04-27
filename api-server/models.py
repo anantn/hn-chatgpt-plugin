@@ -1,8 +1,9 @@
 from sqlalchemy import Column, ForeignKey, Integer, String, Enum, Table
-from sqlalchemy.orm import relationship, backref
-
-from database import Base
+from sqlalchemy.orm import relationship
+from sqlalchemy.ext.declarative import declarative_base
 import enum
+
+Base = declarative_base()
 
 
 class User(Base):
@@ -24,13 +25,16 @@ class ItemType(enum.Enum):
     poll = 'poll'
     pollopt = 'pollopt'
 
+
 class SortBy(enum.Enum):
     score = 'score'
     time = 'time'
 
+
 class Order(enum.Enum):
     asc = 'asc'
     desc = 'desc'
+
 
 # Define an assoc table
 association_table = Table(
@@ -40,6 +44,7 @@ association_table = Table(
     Column("kid", Integer, ForeignKey("items.id")),
     Column("display_order", Integer)
 )
+
 
 class Item(Base):
     __tablename__ = "items"
