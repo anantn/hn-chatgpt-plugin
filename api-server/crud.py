@@ -19,8 +19,8 @@ def get_items(db: Session, skip: int = 0, limit: int = 100,
               by: Optional[str] = None,
               sort_by: Optional[models.SortBy] = None,
               order: models.Order = models.Order.desc,
+              contained_in_ids: Optional[list] = None,
               fields = []):
-    # TODO(ruravi): IN clause.
     db_query = db.query(models.Item, *fields)
     if type is not None:
         db_query = db_query.filter(models.Item.type == type)
@@ -36,6 +36,8 @@ def get_items(db: Session, skip: int = 0, limit: int = 100,
     else:
         # Default sort order is descending order of score
         db_query = db_query.order_by(desc(models.SortBy.score.name))
+    if contained_in_ids is not None:
+        db_query = db_query.filter(models.Item.id.in_(contained_in_ids))
     return db_query.offset(skip).limit(limit).all()
 
 

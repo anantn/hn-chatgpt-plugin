@@ -19,6 +19,7 @@ class UserBase(BaseModel):
     submitted: str
 
 class Item(ItemBase):
+    id: int
     kids: list['Item'] = []
     class Config:
         orm_mode = True

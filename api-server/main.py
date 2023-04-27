@@ -36,7 +36,7 @@ def get_stories(by: Union[str, None] = None,
     fields = [] # If include_children, return all default fields.
     if not include_children:
         # Otherwise specify just 4 fields to return
-        fields = [models.Item.title, models.Item.text, models.Item.url, models.Item.by]
+        fields = [models.Item.id, models.Item.title, models.Item.text, models.Item.url, models.Item.by]
     items = crud.get_items(db, skip=skip, limit=limit,
                            type=models.ItemType.story, 
                            fields=fields,
