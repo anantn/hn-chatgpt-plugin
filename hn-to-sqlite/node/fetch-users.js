@@ -40,15 +40,17 @@ async function main() {
 
     const db = new sqlite3.Database(DB_PATH);
 
-    const exec = promisify(db.exec).bind(db);
+    //const exec = promisify(db.exec).bind(db);
     const all = promisify(db.all).bind(db);
 
+    /*
     await exec("PRAGMA synchronous = OFF;");
     await exec("PRAGMA journal_mode = WAL;");
     await exec("PRAGMA cache_size = 1000000;");
     await exec("PRAGMA temp_store = MEMORY;");
     await exec("PRAGMA locking_mode = EXCLUSIVE;");
     await exec("PRAGMA mmap_size = 30000000000;");
+    */
 
     // Get unique users from the items table
     const users = await all("SELECT DISTINCT by as id FROM items WHERE by IS NOT NULL");

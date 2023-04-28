@@ -1,2 +1,7 @@
+requests
 sqlalchemy
 fastapi
+uvicorn
+aiohttp
+aiohttp-sse-client
+tqdm

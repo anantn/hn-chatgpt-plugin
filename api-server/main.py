@@ -1,5 +1,9 @@
 import os
 import copy
+import dbsync
+import uvicorn
+import asyncio
+
 from fastapi import Query, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import FileResponse
@@ -238,6 +242,23 @@ def get_users(ids: Optional[List[str]] = Query(None),
     return session.execute(user_select).fetchall()
 
 
+async def main():
+    updates = await dbsync.run(DB_PATH)
+    config = uvicorn.Config(app, port=8000, log_level="info", reload=True)
+    server = uvicorn.Server(config)
+
+    uvicorn_task = asyncio.create_task(server.serve())
+    _, pending = await asyncio.wait(
+        {updates, uvicorn_task}, return_when=asyncio.FIRST_COMPLETED
+    )
+    for task in pending:
+        task.cancel()
+
+    print("Exiting...")
+
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("main:app", port=8000, log_level="info", reload=True)
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("Shutting down...")
+        dbsync.shutdown()
