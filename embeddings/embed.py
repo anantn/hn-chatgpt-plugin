@@ -170,17 +170,16 @@ def main():
     # Fetch the last processed story
     last_processed_story = fetch_last_processed_story(embeddings_conn)
     if last_processed_story:
+        print("Found last processed story: ", last_processed_story)
         if offset != 0:
             print(f"Finding story with the right offset: {offset}")
             cursor = conn.cursor()
             cursor.execute('''SELECT id FROM (
     SELECT id FROM items WHERE id < ? AND type='story' ORDER BY id DESC
     ) AS subquery LIMIT 1 OFFSET ?;''', (last_processed_story, offset-1))
-            offset = cursor.fetchone()[0]
+            last_processed_story = cursor.fetchone()[0]
             cursor.close()
-        print(
-            f"Resuming from story {last_processed_story-offset} (original: {last_processed_story})")
-        last_processed_story = last_processed_story-offset
+        print(f"Resuming from story {last_processed_story}")
         constraint += f" AND id > {last_processed_story}"
 
     cursor = conn.cursor()
