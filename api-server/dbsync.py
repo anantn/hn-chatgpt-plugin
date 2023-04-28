@@ -137,19 +137,25 @@ async def process_updates(updates_array):
 
 
 async def watch_updates():
-    async with sse_client.EventSource(f"{HN_URL}/updates.json") as client:
-        async for event in client:
-            global disconnect, initial_fetch_completed
-            updates = json.loads(event.data)
-            if updates:
-                buffer.append(updates)
-                log_with_timestamp(f"Buffer now at {len(buffer)}.")
-                if initial_fetch_completed:
-                    await process_updates(buffer)
-                    buffer.clear()
-                    log_with_timestamp("Buffer cleared.")
-            if disconnect:
-                break
+    global disconnect, initial_fetch_completed
+    while not disconnect:
+        try:
+            async with sse_client.EventSource(f"{HN_URL}/updates.json") as client:
+                async for event in client:
+                    if disconnect:
+                        break
+                    updates = json.loads(event.data)
+                    if updates:
+                        buffer.append(updates)
+                        log_with_timestamp(f"Buffer now at {len(buffer)}.")
+                        if initial_fetch_completed:
+                            await process_updates(buffer)
+                            buffer.clear()
+                            log_with_timestamp("Buffer cleared.")
+        except TimeoutError:
+            log_with_timestamp(
+                "Connection to SSE channel timed out. Retrying in 10 seconds...")
+            await asyncio.sleep(10)
 
 
 def shutdown():
