@@ -1,0 +1,513 @@
+---
+openapi: 3.0.2
+info:
+  title: Hacker News API for ChatGPT
+  version: '0.1'
+  description: Query, analyze, and summarize insights from the Hacker News community.
+  contact:
+    url: https://hn.kix.in/
+    email: anant@kix.in
+  license:
+    name: MIT License
+    url: https://opensource.org/license/mit/
+paths:
+  "/story":
+    get:
+      summary: Retrieve a story along with all its comments.
+      operationId: get_story_story_get
+      parameters:
+      - required: false
+        schema:
+          type: integer
+          default: 1
+        name: id
+        in: query
+        description: ID of the story you want to retrieve.
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/StoryResponse"
+  "/stories":
+    get:
+      summary: Search for stories matching a variety of criteria. Stories are sorted by their score (upvotes) by default.
+      operationId: get_stories_stories_get
+      parameters:
+      - required: false
+        schema:
+          type: array
+          items:
+            type: integer
+        name: ids
+        in: query
+        description: Find stories with these IDs, useful if you already know which stories you want metadata for.
+      - required: false
+        schema:
+          type: string
+        name: by
+        in: query
+        description: Find stories submitted by this user.
+      - required: false
+        schema:
+          type: integer
+        name: before_time
+        in: query
+        description: Find stories submitted at or before this UNIX time.
+      - required: false
+        schema:
+          type: integer
+        name: after_time
+        in: query
+        description: Find stories submitted at or after this UNIX time.
+      - required: false
+        schema:
+          type: integer
+        name: min_score
+        in: query
+        description: Find stories with a score at or above this number.
+      - required: false
+        schema:
+          type: integer
+        name: max_score
+        in: query
+        description: Find stories with a score at or below this number.
+      - required: false
+        schema:
+          type: integer
+        name: min_comments
+        in: query
+        description: Find stories with number of comments (descendants) equal to or above this number.
+      - required: false
+        schema:
+          type: integer
+        name: max_comments
+        in: query
+        description: Find stories with number of comments (descendants) equal to or below this number.
+      - required: false
+        schema:
+          "$ref": "#/components/schemas/SortBy"
+        name: sort_by
+        in: query
+        description: Sort results by score (upvotes, default), descendants (number of comments), time (of submission).
+      - required: false
+        schema:
+          "$ref": "#/components/schemas/SortOrder"
+        name: sort_order
+        in: query
+        description: Sort results in descending (default) or ascending order of the sort_by parameter.
+      - required: false
+        schema:
+          type: string
+        name: query
+        in: query
+        description: Perform a semantic search using this phrase against text found in stories and all their comments.
+      - required: false
+        schema:
+          type: integer
+          default: 0
+        name: skip
+        in: query
+        description: Offset the results returned, use to page through multiple results.
+      - required: false
+        schema:
+          type: integer
+          default: 50
+        name: limit
+        in: query
+        description: Limit the number of results returned (default 50, max 100).
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  "$ref": "#/components/schemas/StoryResponse"
+  "/comment":
+    get:
+      summary: Retrieve a comment along with all its replies.
+      operationId: get_comment_comment_get
+      parameters:
+      - required: false
+        schema:
+          type: integer
+          default: 1
+        name: id
+        in: query
+        description: ID of the comment you want to retrieve.
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/CommentResponse"
+  "/comments":
+    get:
+      summary: Find comments matching a variety of criteria. Comments are sorted by the most recent ones by default.
+      operationId: get_comments_comments_get
+      parameters:
+      - required: false
+        schema:
+          type: array
+          items:
+            type: integer
+        name: ids
+        in: query
+        description: Find comments with these IDs, useful if you already know which comments you want metadata for.
+      - required: false
+        schema:
+          type: string
+        name: by
+        in: query
+        description: Find comments submitted by this user.
+      - required: false
+        schema:
+          type: integer
+        name: before_time
+        in: query
+        description: Find comments submitted at or before this UNIX time.
+      - required: false
+        schema:
+          type: integer
+        name: after_time
+        in: query
+        description: Find comments submitted at or after this UNIX time.
+      - required: false
+        schema:
+          "$ref": "#/components/schemas/SortBy"
+        name: sort_by
+        in: query
+        description: Sort results by score (upvotes), descendants (number of comments), time (of submission, default).
+      - required: false
+        schema:
+          "$ref": "#/components/schemas/SortOrder"
+        name: sort_order
+        in: query
+        description: Sort results in descending (default) or ascending order of the sort_by parameter.
+      - required: false
+        schema:
+          type: string
+        name: query
+        in: query
+        description: Search for comments containing this text.
+      - required: false
+        schema:
+          type: integer
+          default: 0
+        name: skip
+        in: query
+        description: Offset the results returned, use to page through multiple results.
+      - required: false
+        schema:
+          type: integer
+          default: 50
+        name: limit
+        in: query
+        description: Limit the number of results returned (default 50, max 100).
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  "$ref": "#/components/schemas/CommentResponse"
+  "/polls":
+    get:
+      summary: Find polls matching a variety of criteria. Polls are sorted by their score (upvotes) by default.
+      operationId: get_polls_polls_get
+      parameters:
+      - required: false
+        schema:
+          type: array
+          items:
+            type: integer
+        name: ids
+        in: query
+        description: Find polls with these IDs, useful if you already know which polls you want metadata for.
+      - required: false
+        schema:
+          type: string
+        name: by
+        in: query
+        description: Find polls submitted by this user.
+      - required: false
+        schema:
+          type: integer
+        name: before_time
+        in: query
+        description: Find polls submitted at or before this UNIX time.
+      - required: false
+        schema:
+          type: integer
+        name: after_time
+        in: query
+        description: Find polls submitted at or after this UNIX time.
+      - required: false
+        schema:
+          "$ref": "#/components/schemas/SortBy"
+        name: sort_by
+        in: query
+        description: Sort results by score (upvotes, default), descendants (number of comments), time (of submission).
+      - required: false
+        schema:
+          "$ref": "#/components/schemas/SortOrder"
+        name: sort_order
+        in: query
+        description: Sort results in descending (default) or ascending order of the sort_by parameter.
+      - required: false
+        schema:
+          type: string
+        name: query
+        in: query
+        description: Search for polls whose title or text contains this phrase.
+      - required: false
+        schema:
+          type: integer
+          default: 0
+        name: skip
+        in: query
+        description: Offset the results returned, use to page through multiple results.
+      - required: false
+        schema:
+          type: integer
+          default: 10
+        name: limit
+        in: query
+        description: Limit the number of results returned (default 10, max 100).
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  "$ref": "#/components/schemas/PollResponse"
+  "/user":
+    get:
+      summary: Retrieve a user along with all their submissions (story, comment, or
+        poll IDs).
+      operationId: get_user_user_get
+      parameters:
+      - required: false
+        schema:
+          type: string
+          default: pg
+        name: id
+        in: query
+        description: ID of the user you want to retrieve.
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/UserResponse"
+  "/users":
+    get:
+      summary: Find users matching a variety of criteria. Users are sorted by their
+        karma (upvotes) by default.
+      operationId: get_users_users_get
+      parameters:
+      - required: false
+        schema:
+          type: array
+          items:
+            type: string
+        name: ids
+        in: query
+        description: Find users with these IDs, useful if you already know which users you want metadata for.
+      - required: false
+        schema:
+          type: integer
+        name: before_created
+        in: query
+        description: Find users created at or before this UNIX time.
+      - required: false
+        schema:
+          type: integer
+        name: after_created
+        in: query
+        description: Find users created at or after this UNIX time.
+      - required: false
+        schema:
+          type: integer
+        name: min_karma
+        in: query
+        description: Find users with karma at or above this number.
+      - required: false
+        schema:
+          type: integer
+        name: max_karma
+        in: query
+        description: Find users with karma at or below this number.
+      - required: false
+        schema:
+          "$ref": "#/components/schemas/UserSortBy"
+        name: sort_by
+        in: query
+        description: Sort results by karma (default), or created (account creation time).
+      - required: false
+        schema:
+          "$ref": "#/components/schemas/SortOrder"
+        name: sort_order
+        in: query
+        description: Sort results in descending (default) or ascending order of the sort_by parameter.
+      - required: false
+        schema:
+          type: integer
+          default: 0
+        name: skip
+        in: query
+        description: Offset the results returned, use to page through multiple results.
+      - required: false
+        schema:
+          type: integer
+          default: 10
+        name: limit
+        in: query
+        description: Limit the number of results returned (default 10, max 100).
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  "$ref": "#/components/schemas/UserResponse"
+components:
+  schemas:
+    CommentResponse:
+      required:
+      - id
+      - type
+      - parent
+      type: object
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+        text:
+          type: string
+        time:
+          type: integer
+        by:
+          type: string
+        hn_url:
+          type: string
+        parent:
+          type: integer
+        kids:
+          type: array
+          items:
+            "$ref": "#/components/schemas/CommentResponse"
+          default: []
+    PollResponse:
+      required:
+      - id
+      - type
+      - title
+      type: object
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+        text:
+          type: string
+        time:
+          type: integer
+        by:
+          type: string
+        hn_url:
+          type: string
+        title:
+          type: string
+        score:
+          type: integer
+          default: 0
+        descendants:
+          type: integer
+          default: 0
+        parts:
+          type: array
+          items:
+            "$ref": "#/components/schemas/ItemResponse"
+    StoryResponse:
+      required:
+      - id
+      - type
+      type: object
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+        text:
+          type: string
+        time:
+          type: integer
+        by:
+          type: string
+        hn_url:
+          type: string
+        title:
+          type: string
+        url:
+          type: string
+        score:
+          type: integer
+          default: 0
+        descendants:
+          type: integer
+          default: 0
+        kids:
+          type: array
+          items:
+            "$ref": "#/components/schemas/CommentResponse"
+          default: []
+    UserResponse:
+      required:
+      - id
+      - created
+      - karma
+      type: object
+      properties:
+        id:
+          type: string
+        created:
+          type: integer
+        karma:
+          type: integer
+        about:
+          type: string
+        submitted:
+          type: array
+          items:
+            type: integer
+        hn_url:
+          type: string
+    SortBy:
+      enum:
+      - score
+      - time
+      - descendants
+      description: Use to ensure results are sorted by a specific value. Valid values are 'score', 'descendant', or 'time'.
+    SortOrder:
+      enum:
+      - asc
+      - desc
+      description: Use to ensure results are sorted in a specific order. Valid values are 'desc' or 'asc'.
+    UserSortBy:
+      enum:
+      - created
+      - karma
+      description: Use to ensure results are sorted by a specific value. Valid values are 'karma' or 'created'.

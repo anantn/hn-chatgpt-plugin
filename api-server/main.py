@@ -1,8 +1,12 @@
 import os
 import copy
-from fastapi import Query, FastAPI, HTTPException
+from fastapi import Query, FastAPI, HTTPException, Request
+from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import Response
 from sqlalchemy import select, create_engine, or_
-from sqlalchemy.orm import sessionmaker, relationship, scoped_session, noload
+from sqlalchemy.orm import sessionmaker, scoped_session, noload
 from typing import List, Optional, Union
 from schema import *
 
@@ -20,16 +24,48 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
+
+def set_schema():
+    if app.openapi_schema:
+        return app.openapi_schema
+    app.openapi_schema = get_schema(app)
+    return app.openapi_schema
+
+
+class NoCacheMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next) -> Response:
+        response = await call_next(request)
+        response.headers["Cache-Control"] = "no-store"
+        return response
+
+
+app.openapi = set_schema
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost",
+        "http://localhost:8000",
+        "https://chat.openai.com",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+app.add_middleware(NoCacheMiddleware)
+app.mount("/", StaticFiles(directory="static"))
+
 # Helper CRUD method
 
 
 def get_items(item_type: Optional[ItemType] = None, ids: Optional[List[int]] = None,
-              by: Optional[str] = None, url: Optional[str] = None,
-              before_time: Optional[int] = None, after_time: Optional[int] = None,
+              by: Optional[str] = None, before_time: Optional[int] = None, after_time: Optional[int] = None,
               min_score: Optional[int] = None, max_score: Optional[int] = None,
               min_comments: Optional[int] = None, max_comments: Optional[int] = None,
               sort_by: Union[SortBy, None] = None, sort_order: Union[SortOrder, None] = None,
               query: Optional[str] = None, skip: int = 0, limit: int = 10):
+    if limit > 100:
+        limit = 100
+
     session = scoped_session()
     if item_type is not None:
         item_type = item_type.value
@@ -41,8 +77,6 @@ def get_items(item_type: Optional[ItemType] = None, ids: Optional[List[int]] = N
         items_query = items_query.filter(Item.id.in_(ids))
     if by is not None:
         items_query = items_query.filter(Item.by == by)
-    if url is not None:
-        items_query = items_query.filter(Item.url == url)
     if before_time is not None:
         items_query = items_query.filter(Item.time <= before_time)
     if after_time is not None:
@@ -75,7 +109,7 @@ def get_items(item_type: Optional[ItemType] = None, ids: Optional[List[int]] = N
 # API endpoints
 
 
-@app.get("/story", response_model=StoryResponse)
+@ app.get("/story", response_model=StoryResponse)
 def get_story(id: int = Query(1)):
     session = scoped_session()
     story = session.query(Item).filter(
@@ -85,8 +119,8 @@ def get_story(id: int = Query(1)):
     return story
 
 
-@app.get("/stories", response_model=List[StoryResponse])
-def get_stories(ids: Optional[List[int]] = Query(None), by: Optional[str] = None, url: Optional[str] = None,
+@ app.get("/stories", response_model=List[StoryResponse])
+def get_stories(ids: Optional[List[int]] = Query(None), by: Optional[str] = None,
                 before_time: Optional[int] = None, after_time: Optional[int] = None,
                 min_score: Optional[int] = None, max_score: Optional[int] = None,
                 min_comments: Optional[int] = None, max_comments: Optional[int] = None,
@@ -95,12 +129,12 @@ def get_stories(ids: Optional[List[int]] = Query(None), by: Optional[str] = None
     if sort_by is None and sort_order is None:
         sort_by = SortBy.score
         sort_order = SortOrder.desc
-    return get_items(item_type=ItemType.story, ids=ids, by=by, url=url, before_time=before_time, after_time=after_time,
+    return get_items(item_type=ItemType.story, ids=ids, by=by, before_time=before_time, after_time=after_time,
                      min_score=min_score, max_score=max_score, min_comments=min_comments, max_comments=max_comments,
                      sort_by=sort_by, sort_order=sort_order, query=query, skip=skip, limit=limit)
 
 
-@app.get("/comment", response_model=CommentResponse)
+@ app.get("/comment", response_model=CommentResponse)
 def get_comment(id: int = Query(1)):
     session = scoped_session()
     comment = session.query(Item).filter(
@@ -110,7 +144,7 @@ def get_comment(id: int = Query(1)):
     return comment
 
 
-@app.get("/comments", response_model=List[CommentResponse])
+@ app.get("/comments", response_model=List[CommentResponse])
 def get_comments(ids: Optional[List[int]] = Query(None), by: Optional[str] = None,
                  before_time: Optional[int] = None, after_time: Optional[int] = None,
                  sort_by: Union[SortBy, None] = None, sort_order: Union[SortOrder, None] = None,
@@ -122,7 +156,7 @@ def get_comments(ids: Optional[List[int]] = Query(None), by: Optional[str] = Non
                      sort_by=sort_by, sort_order=sort_order, query=query, skip=skip, limit=limit)
 
 
-@app.get("/polls", response_model=List[PollResponse])
+@ app.get("/polls", response_model=List[PollResponse])
 def get_polls(ids: Optional[List[int]] = Query(None), by: Optional[str] = None,
               before_time: Optional[int] = None, after_time: Optional[int] = None,
               sort_by: Union[SortBy, None] = None, sort_order: Union[SortOrder, None] = None,
@@ -151,7 +185,7 @@ def get_polls(ids: Optional[List[int]] = Query(None), by: Optional[str] = None,
     return poll_responses
 
 
-@app.get("/user", response_model=UserResponse)
+@ app.get("/user", response_model=UserResponse)
 def get_user(id: str = Query("pg")):
     session = scoped_session()
     user = session.query(User).filter(User.id == id).first()
@@ -160,12 +194,14 @@ def get_user(id: str = Query("pg")):
     return user
 
 
-@app.get("/users", response_model=List[UserResponse])
+@ app.get("/users", response_model=List[UserResponse])
 def get_users(ids: Optional[List[str]] = Query(None),
               before_created: Optional[int] = None, after_created: Optional[int] = None,
               min_karma: Optional[int] = None, max_karma: Optional[int] = None,
               sort_by: Union[UserSortBy, None] = None, sort_order: Union[SortOrder, None] = None,
-              skip: int = 0, limit: int = 1):
+              skip: int = 0, limit: int = 10):
+    if limit > 100:
+        limit = 100
     session = scoped_session()
 
     # Select columns except submitted

@@ -1,0 +1,18 @@
+{
+    "schema_version": "v1",
+    "name_for_human": "Hacker News",
+    "name_for_model": "hacker_news",
+    "description_for_human": "Plugin for searching, analyzing, and summarizing insights from the Hacker News community.",
+    "description_for_model": "This is a FastAPI provided over a SQLite table of content from Hacker News, along with semantic search capabilities to find relevant stories and comments.",
+    "auth": {
+        "type": "none"
+    },
+    "api": {
+        "type": "openapi",
+        "url": "http://localhost:8000/openapi.yaml",
+        "is_user_authenticated": false
+    },
+    "logo_url": "http://localhost:8000/hn.jpg",
+    "contact_email": "anant@kix.in",
+    "legal_info_url": "https://www.ycombinator.com/legal/"
+}
