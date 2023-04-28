@@ -6,6 +6,7 @@ import ProgressBar from "progress";
 
 const args = process.argv.slice(2);
 const DB_PATH = args[0];
+const UPDATE_ALL = args[1];
 const BATCH_SIZE = 256;
 
 const firebaseConfig = {
@@ -34,7 +35,7 @@ async function insertUserBatch(db, usersBatch) {
 
 async function main() {
     if (!DB_PATH) {
-        console.error("Usage: node fetch-users.js <db>");
+        console.error("Usage: node fetch-users.js <db> [--all]");
         process.exit(1);
     }
 
@@ -55,12 +56,15 @@ async function main() {
     // Get unique users from the items table
     const users = await all("SELECT DISTINCT by as id FROM items WHERE by IS NOT NULL");
 
-    // Get user IDs already in the users table
-    const existingUserIds = await all("SELECT id FROM users");
-    const existingUserIdsSet = new Set(existingUserIds.map((row) => row.id));
+    var missingUsers = users;
+    if (!UPDATE_ALL) {
+        // Get user IDs already in the users table
+        const existingUserIds = await all("SELECT id FROM users");
+        const existingUserIdsSet = new Set(existingUserIds.map((row) => row.id));
 
-    // Filter out the existing user IDs
-    const missingUsers = users.filter((user) => !existingUserIdsSet.has(user.id));
+        // Filter out the existing user IDs
+        missingUsers = users.filter((user) => !existingUserIdsSet.has(user.id));
+    }
 
     const bar = new ProgressBar("Processing [:bar] :current/:total :percent :rate :elapsed/:etas", {
         total: missingUsers.length,
