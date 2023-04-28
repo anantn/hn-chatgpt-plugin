@@ -1,10 +1,9 @@
 import os
 import copy
-from fastapi import Query, FastAPI, HTTPException, Request
-from fastapi.staticfiles import StaticFiles
+from fastapi import Query, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.responses import Response
+from starlette.responses import FileResponse
+
 from sqlalchemy import select, create_engine, or_
 from sqlalchemy.orm import sessionmaker, scoped_session, noload
 from typing import List, Optional, Union
@@ -32,18 +31,10 @@ def set_schema():
     return app.openapi_schema
 
 
-class NoCacheMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next) -> Response:
-        response = await call_next(request)
-        response.headers["Cache-Control"] = "no-store"
-        return response
-
-
 app.openapi = set_schema
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost",
         "http://localhost:8000",
         "https://chat.openai.com",
     ],
@@ -51,8 +42,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-app.add_middleware(NoCacheMiddleware)
-app.mount("/", StaticFiles(directory="static"))
 
 # Helper CRUD method
 
@@ -103,13 +92,28 @@ def get_items(item_type: Optional[ItemType] = None, ids: Optional[List[int]] = N
 
     # Limit & skip
     items_query = items_query.offset(skip).limit(limit)
-    print(items_query)
+    # print(items_query)
     return items_query.all()
 
 # API endpoints
 
 
-@ app.get("/story", response_model=StoryResponse)
+@app.get("/.well-known/ai-plugin.json")
+def get_plugin():
+    return FileResponse("static/ai-plugin.json")
+
+
+@app.get("/openapi.yaml")
+def get_plugin():
+    return FileResponse("static/openapi.yaml")
+
+
+@app.get("/hn.jpg")
+def get_plugin():
+    return FileResponse("static/hn.jpg")
+
+
+@app.get("/story", response_model=StoryResponse)
 def get_story(id: int = Query(1)):
     session = scoped_session()
     story = session.query(Item).filter(
@@ -119,7 +123,7 @@ def get_story(id: int = Query(1)):
     return story
 
 
-@ app.get("/stories", response_model=List[StoryResponse])
+@app.get("/stories", response_model=List[StoryResponse])
 def get_stories(ids: Optional[List[int]] = Query(None), by: Optional[str] = None,
                 before_time: Optional[int] = None, after_time: Optional[int] = None,
                 min_score: Optional[int] = None, max_score: Optional[int] = None,
@@ -134,7 +138,7 @@ def get_stories(ids: Optional[List[int]] = Query(None), by: Optional[str] = None
                      sort_by=sort_by, sort_order=sort_order, query=query, skip=skip, limit=limit)
 
 
-@ app.get("/comment", response_model=CommentResponse)
+@app.get("/comment", response_model=CommentResponse)
 def get_comment(id: int = Query(1)):
     session = scoped_session()
     comment = session.query(Item).filter(
@@ -144,7 +148,7 @@ def get_comment(id: int = Query(1)):
     return comment
 
 
-@ app.get("/comments", response_model=List[CommentResponse])
+@app.get("/comments", response_model=List[CommentResponse])
 def get_comments(ids: Optional[List[int]] = Query(None), by: Optional[str] = None,
                  before_time: Optional[int] = None, after_time: Optional[int] = None,
                  sort_by: Union[SortBy, None] = None, sort_order: Union[SortOrder, None] = None,
@@ -156,7 +160,7 @@ def get_comments(ids: Optional[List[int]] = Query(None), by: Optional[str] = Non
                      sort_by=sort_by, sort_order=sort_order, query=query, skip=skip, limit=limit)
 
 
-@ app.get("/polls", response_model=List[PollResponse])
+@app.get("/polls", response_model=List[PollResponse])
 def get_polls(ids: Optional[List[int]] = Query(None), by: Optional[str] = None,
               before_time: Optional[int] = None, after_time: Optional[int] = None,
               sort_by: Union[SortBy, None] = None, sort_order: Union[SortOrder, None] = None,
@@ -185,7 +189,7 @@ def get_polls(ids: Optional[List[int]] = Query(None), by: Optional[str] = None,
     return poll_responses
 
 
-@ app.get("/user", response_model=UserResponse)
+@app.get("/user", response_model=UserResponse)
 def get_user(id: str = Query("pg")):
     session = scoped_session()
     user = session.query(User).filter(User.id == id).first()
@@ -194,7 +198,7 @@ def get_user(id: str = Query("pg")):
     return user
 
 
-@ app.get("/users", response_model=List[UserResponse])
+@app.get("/users", response_model=List[UserResponse])
 def get_users(ids: Optional[List[str]] = Query(None),
               before_created: Optional[int] = None, after_created: Optional[int] = None,
               min_karma: Optional[int] = None, max_karma: Optional[int] = None,
@@ -236,5 +240,4 @@ def get_users(ids: Optional[List[str]] = Query(None),
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="127.0.0.1", port=8000,
-                log_level="info", reload=True)
+    uvicorn.run("main:app", port=8000, log_level="info", reload=True)
