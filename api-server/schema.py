@@ -77,6 +77,7 @@ class User(Base):
 class ItemResponse(BaseModel):
     id: int
     type: str
+    text: Optional[str] = None
     time: Optional[int] = None
     by: Optional[str] = None
     hn_url: Optional[str] = Field(None)
@@ -93,7 +94,6 @@ class ItemResponse(BaseModel):
 
 
 class CommentResponse(ItemResponse):
-    text: Optional[str]
     parent: int
     kids: list['CommentResponse'] = []
 
@@ -103,7 +103,6 @@ class CommentResponse(ItemResponse):
 
 class StoryResponse(ItemResponse):
     title: Optional[str] = None
-    text: Optional[str] = None
     url: Optional[str] = None
     score: Optional[int] = 0
     descendants: Optional[int] = 0
@@ -115,19 +114,9 @@ class StoryResponse(ItemResponse):
 
 class PollResponse(ItemResponse):
     title: str
-    text: Optional[str]
     score: Optional[int] = 0
     descendants: Optional[int] = 0
-    parts: Optional[List[dict]] = None
-
-    @validator("parts", pre=True)
-    def parse_submitted(cls, value: Optional[str]) -> Optional[List[dict]]:
-        if value is not None:
-            try:
-                return json.loads(value)
-            except json.JSONDecodeError:
-                return []
-        return None
+    parts: Optional[List[ItemResponse]] = None
 
     class Config:
         orm_mode = True

@@ -1,5 +1,5 @@
 import os
-import json
+import copy
 from fastapi import Query, FastAPI, HTTPException
 from sqlalchemy import select, create_engine, or_
 from sqlalchemy.orm import sessionmaker, relationship, scoped_session, noload
@@ -122,11 +122,11 @@ def get_comments(ids: Optional[List[int]] = Query(None), by: Optional[str] = Non
                      sort_by=sort_by, sort_order=sort_order, query=query, skip=skip, limit=limit)
 
 
-@ app.get("/polls", response_model=List[PollResponse])
+@app.get("/polls", response_model=List[PollResponse])
 def get_polls(ids: Optional[List[int]] = Query(None), by: Optional[str] = None,
               before_time: Optional[int] = None, after_time: Optional[int] = None,
               sort_by: Union[SortBy, None] = None, sort_order: Union[SortOrder, None] = None,
-              query: Optional[str] = None, skip: int = 0, limit: int = 50):
+              query: Optional[str] = None, skip: int = 0, limit: int = 10):
     if sort_by is None and sort_order is None:
         sort_by = SortBy.score
         sort_order = SortOrder.desc
@@ -136,13 +136,19 @@ def get_polls(ids: Optional[List[int]] = Query(None), by: Optional[str] = None,
         return []
 
     session = scoped_session()
+    poll_responses = []
     for item in items:
-        item_parts = [int(part_id) for part_id in item.parts.split(",")]
+        working_item = copy.copy(item)
+        item_parts = [int(part_id)
+                      for part_id in working_item.parts.split(",")]
+        working_item.parts = None
         item_pollopts = session.query(Item).filter(
             Item.id.in_(item_parts)).all()
-        item.parts = json.dumps(
-            [StoryResponse.from_orm(item) for item in items])
-    return items
+        parts = [ItemResponse.from_orm(pollopt) for pollopt in item_pollopts]
+        poll_response = PollResponse.from_orm(working_item)
+        poll_response.parts = parts
+        poll_responses.append(poll_response)
+    return poll_responses
 
 
 @app.get("/user", response_model=UserResponse)
@@ -183,9 +189,9 @@ def get_users(ids: Optional[List[str]] = Query(None),
         user_select = user_select.order_by(User.karma.desc())
     else:
         sort_column = getattr(User, sort_by.value)
-        if sort_order == models.Order.asc:
+        if sort_order == SortOrder.asc:
             user_select = user_select.order_by(sort_column.asc())
-        elif sort_order == models.Order.desc:
+        elif sort_order == SortOrder.desc:
             user_select = user_select.order_by(sort_column.desc())
 
     user_select = user_select.offset(skip).limit(limit)
