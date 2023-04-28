@@ -91,11 +91,11 @@ function createTables(db) {
 
     // These indexes were created manually
     // CREATE INDEX idx_items_type ON items(type);
-    // CREATE INDEX idx_items_by ON items(by);
-    // CREATE INDEX idx_items_time ON items(time);
-    // CREATE INDEX idx_items_parent ON items(parent);
-    // CREATE INDEX idx_items_score ON items(score);
-    // CREATE INDEX idx_kids_item ON kids(item);
+    // CREATE INDEX idx_items_type_by ON items(type, by);
+    // CREATE INDEX idx_items_type_time ON items(type, time);
+    // CREATE INDEX idx_items_type_score ON items(type, score);
+    // CREATE INDEX idx_items_type_parent ON items(type, parent);
+    // CREATE INDEX idx_kids_item_kid ON kids(item, kid);
 }
 
 function usage() {

@@ -2,7 +2,6 @@ import os
 import re
 import sys
 import html
-import torch
 import sqlite3
 import datetime
 from collections import defaultdict
@@ -166,16 +165,25 @@ def main():
     """)
 
     # Fetch all interesting stories
-    cursor = conn.cursor()
     constraint = "FROM items WHERE type = 'story' AND score >= 20 AND descendants >= 3"
 
     # Fetch the last processed story
     last_processed_story = fetch_last_processed_story(embeddings_conn)
     if last_processed_story:
+        if offset != 0:
+            print(f"Finding story with the right offset: {offset}")
+            cursor = conn.cursor()
+            cursor.execute('''SELECT id FROM (
+    SELECT id FROM items WHERE id < ? AND type='story' ORDER BY id DESC
+    ) AS subquery LIMIT 1 OFFSET ?;''', (last_processed_story, offset-1))
+            offset = cursor.fetchone()[0]
+            cursor.close()
+        print(
+            f"Resuming from story {last_processed_story-offset} (original: {last_processed_story})")
         last_processed_story = last_processed_story-offset
-        print(f"Resuming from story {last_processed_story} (offset: {offset})")
         constraint += f" AND id > {last_processed_story}"
 
+    cursor = conn.cursor()
     cursor.execute(f"SELECT COUNT(*) {constraint}")
     total_stories = cursor.fetchone()[0]
     cursor.close()

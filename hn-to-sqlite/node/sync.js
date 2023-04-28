@@ -7,7 +7,7 @@ import ProgressBar from "progress";
 const args = process.argv.slice(2);
 const DB_PATH = args[0];
 const BATCH_SIZE = 512;
-const OFFSET = 100000;
+const OFFSET = 25000;
 
 const firebaseConfig = {
     databaseURL: "https://hacker-news.firebaseio.com",
