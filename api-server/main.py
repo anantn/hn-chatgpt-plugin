@@ -254,6 +254,7 @@ async def main():
     for task in pending:
         task.cancel()
 
+    dbsync.shutdown()
     print("Exiting...")
 
 if __name__ == "__main__":
