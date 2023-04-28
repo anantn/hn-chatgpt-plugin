@@ -1,90 +1,198 @@
-from typing import Union
-from fastapi import Depends, FastAPI, HTTPException
-from sqlalchemy.orm import Session
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-
 import os
-import crud
-import models
-import schemas
+import json
+from fastapi import Query, FastAPI, HTTPException
+from sqlalchemy import select, create_engine, or_
+from sqlalchemy.orm import sessionmaker, relationship, scoped_session, noload
+from typing import List, Optional, Union
+from schema import *
 
-db_path = os.environ.get("DB_PATH")
-if not db_path:
+# Database connection
+DB_PATH = os.environ.get("DB_PATH")
+if not DB_PATH:
     print("Please set the DB_PATH environment variable to the path of the SQLite database.")
     exit()
 
 engine = create_engine(
-    'sqlite:///'+db_path, connect_args={"check_same_thread": False}
-)
-
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-models.Base.metadata.create_all(bind=engine)
+    f"sqlite:///{DB_PATH}?mode=ro", connect_args={"check_same_thread": False})
+session_factory = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+scoped_session = scoped_session(session_factory)
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+# Helper CRUD method
 
 
-@app.get("/")
-async def read_root():
-    return {"Hello": "World"}
+def get_items(item_type: Optional[ItemType] = None, ids: Optional[List[int]] = None,
+              by: Optional[str] = None, url: Optional[str] = None,
+              before_time: Optional[int] = None, after_time: Optional[int] = None,
+              min_score: Optional[int] = None, max_score: Optional[int] = None,
+              min_comments: Optional[int] = None, max_comments: Optional[int] = None,
+              sort_by: Union[SortBy, None] = None, sort_order: Union[SortOrder, None] = None,
+              query: Optional[str] = None, skip: int = 0, limit: int = 10):
+    session = scoped_session()
+    if item_type is not None:
+        item_type = item_type.value
+    items_query = session.query(Item).filter(Item.type == item_type)
+    items_query = items_query.options(noload(Item.kids))
+
+    # Filtering
+    if ids is not None:
+        items_query = items_query.filter(Item.id.in_(ids))
+    if by is not None:
+        items_query = items_query.filter(Item.by == by)
+    if url is not None:
+        items_query = items_query.filter(Item.url == url)
+    if before_time is not None:
+        items_query = items_query.filter(Item.time <= before_time)
+    if after_time is not None:
+        items_query = items_query.filter(Item.time >= after_time)
+    if min_score is not None:
+        items_query = items_query.filter(Item.score >= min_score)
+    if max_score is not None:
+        items_query = items_query.filter(Item.score <= max_score)
+    if min_comments is not None:
+        items_query = items_query.filter(Item.descendants >= min_comments)
+    if max_comments is not None:
+        items_query = items_query.filter(Item.descendants <= max_comments)
+    if query is not None:
+        items_query = items_query.filter(
+            or_(Item.title.contains(query), Item.text.contains(query)))
+
+    # Sorting
+    if sort_by is not None:
+        sort_column = getattr(Item, sort_by.value)
+        if sort_order == SortOrder.asc:
+            items_query = items_query.order_by(sort_column.asc())
+        elif sort_order == SortOrder.desc:
+            items_query = items_query.order_by(sort_column.desc())
+
+    # Limit & skip
+    items_query = items_query.offset(skip).limit(limit)
+    print(items_query)
+    return items_query.all()
+
+# API endpoints
 
 
-@app.get("/stories", response_model=list[schemas.Item])
-def get_stories(by: Union[str, None] = None,
-                sort_by: Union[models.SortBy, None] = None,
-                order: Union[models.Order, None] = None,
-                include_children: bool = True,
-                skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    fields = []  # If include_children, return all default fields.
-    if not include_children:
-        # Otherwise specify just 4 fields to return
-        fields = [models.Item.id, models.Item.title,
-                  models.Item.time, models.Item.url, models.Item.by]
-    items = crud.get_items(db, skip=skip, limit=limit,
-                           type=models.ItemType.story,
-                           fields=fields,
-                           by=by, sort_by=sort_by, order=order)
+@app.get("/story", response_model=StoryResponse)
+def get_story(id: int = Query(1)):
+    session = scoped_session()
+    story = session.query(Item).filter(
+        Item.type == ItemType.story.value).filter(Item.id == id).first()
+    if story is None:
+        raise HTTPException(status_code=404, detail="Story not found")
+    return story
+
+
+@app.get("/stories", response_model=List[StoryResponse])
+def get_stories(ids: Optional[List[int]] = Query(None), by: Optional[str] = None, url: Optional[str] = None,
+                before_time: Optional[int] = None, after_time: Optional[int] = None,
+                min_score: Optional[int] = None, max_score: Optional[int] = None,
+                min_comments: Optional[int] = None, max_comments: Optional[int] = None,
+                sort_by: Union[SortBy, None] = None, sort_order: Union[SortOrder, None] = None,
+                query: Optional[str] = None, skip: int = 0, limit: int = 10):
+    if sort_by is None and sort_order is None:
+        sort_by = SortBy.score
+        sort_order = SortOrder.desc
+    return get_items(item_type=ItemType.story, ids=ids, by=by, url=url, before_time=before_time, after_time=after_time,
+                     min_score=min_score, max_score=max_score, min_comments=min_comments, max_comments=max_comments,
+                     sort_by=sort_by, sort_order=sort_order, query=query, skip=skip, limit=limit)
+
+
+@app.get("/comment", response_model=CommentResponse)
+def get_comment(id: int = Query(1)):
+    session = scoped_session()
+    comment = session.query(Item).filter(
+        Item.type == ItemType.comment.value).filter(Item.id == id).first()
+    if comment is None:
+        raise HTTPException(status_code=404, detail="Comment not found")
+    return comment
+
+
+@app.get("/comments", response_model=List[CommentResponse])
+def get_comments(ids: Optional[List[int]] = Query(None), by: Optional[str] = None,
+                 before_time: Optional[int] = None, after_time: Optional[int] = None,
+                 sort_by: Union[SortBy, None] = None, sort_order: Union[SortOrder, None] = None,
+                 query: Optional[str] = None, skip: int = 0, limit: int = 50):
+    if sort_by is None and sort_order is None:
+        sort_by = SortBy.time
+        sort_order = SortOrder.desc
+    return get_items(item_type=ItemType.comment, ids=ids, by=by, before_time=before_time, after_time=after_time,
+                     sort_by=sort_by, sort_order=sort_order, query=query, skip=skip, limit=limit)
+
+
+@ app.get("/polls", response_model=List[PollResponse])
+def get_polls(ids: Optional[List[int]] = Query(None), by: Optional[str] = None,
+              before_time: Optional[int] = None, after_time: Optional[int] = None,
+              sort_by: Union[SortBy, None] = None, sort_order: Union[SortOrder, None] = None,
+              query: Optional[str] = None, skip: int = 0, limit: int = 50):
+    if sort_by is None and sort_order is None:
+        sort_by = SortBy.score
+        sort_order = SortOrder.desc
+    items = get_items(item_type=ItemType.poll, ids=ids, by=by, before_time=before_time, after_time=after_time,
+                      sort_by=sort_by, sort_order=sort_order, query=query, skip=skip, limit=limit)
+    if len(items) == 0:
+        return []
+
+    session = scoped_session()
+    for item in items:
+        item_parts = [int(part_id) for part_id in item.parts.split(",")]
+        item_pollopts = session.query(Item).filter(
+            Item.id.in_(item_parts)).all()
+        item.parts = json.dumps(
+            [StoryResponse.from_orm(item) for item in items])
     return items
 
 
-@app.get("/comments", response_model=list[schemas.Item])
-def get_comments(by: Union[str, None] = None,
-                 sort_by: Union[models.SortBy, None] = None,
-                 order: Union[models.Order, None] = None,
-                 skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    items = crud.get_items(db, skip=skip, limit=limit,
-                           type=models.ItemType.comment, by=by, sort_by=sort_by,
-                           order=order)
-    return items
+@app.get("/user", response_model=UserResponse)
+def get_user(id: str = Query("pg")):
+    session = scoped_session()
+    user = session.query(User).filter(User.id == id).first()
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
 
 
-@app.get("/polls", response_model=list[schemas.Item])
-def get_polls(by: Union[str, None] = None,
-              sort_by: Union[models.SortBy, None] = None,
-              order: Union[models.Order, None] = None,
-              skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    items = crud.get_items(db, skip=skip, limit=limit,
-                           type=models.ItemType.poll, by=by, sort_by=sort_by,
-                           order=order)
-    return items
+@app.get("/users", response_model=List[UserResponse])
+def get_users(ids: Optional[List[str]] = Query(None),
+              before_created: Optional[int] = None, after_created: Optional[int] = None,
+              min_karma: Optional[int] = None, max_karma: Optional[int] = None,
+              sort_by: Union[UserSortBy, None] = None, sort_order: Union[SortOrder, None] = None,
+              skip: int = 0, limit: int = 1):
+    session = scoped_session()
+
+    # Select columns except submitted
+    columns = [User.id, User.created, User.karma, User.about]
+    user_select = select(*columns)
+
+    # Filtering
+    if ids is not None:
+        user_select = user_select.where(User.id.in_(ids))
+    if before_created is not None:
+        user_select = user_select.where(User.created <= before_created)
+    if after_created is not None:
+        user_select = user_select.where(User.created >= after_created)
+    if min_karma is not None:
+        user_select = user_select.where(User.karma >= min_karma)
+    if max_karma is not None:
+        user_select = user_select.where(User.karma <= max_karma)
+
+    # Sorting
+    if sort_by is None:
+        user_select = user_select.order_by(User.karma.desc())
+    else:
+        sort_column = getattr(User, sort_by.value)
+        if sort_order == models.Order.asc:
+            user_select = user_select.order_by(sort_column.asc())
+        elif sort_order == models.Order.desc:
+            user_select = user_select.order_by(sort_column.desc())
+
+    user_select = user_select.offset(skip).limit(limit)
+    return session.execute(user_select).fetchall()
 
 
-@app.get("/items/", response_model=list[schemas.Item])
-def read_items(type: Union[models.ItemType, None] = None,
-               query: Union[str, None] = None,
-               by: Union[str, None] = None,
-               sort_by: Union[models.SortBy, None] = None,
-               order: Union[models.Order, None] = None,
-               skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    items = crud.get_items(db, skip=skip, limit=limit,
-                           type=type, query=query, by=by, sort_by=sort_by,
-                           order=order)
-    return items
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("main:app", host="127.0.0.1", port=8000,
+                log_level="info", reload=True)
