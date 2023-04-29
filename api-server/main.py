@@ -150,7 +150,7 @@ async def search_stories(query: str, limit: int = 1, exclude_comments: bool = Fa
         if story_row:
             story = Item(**dict(story_row))
             if not exclude_comments:
-                story.kids = []
+                story.comment_text = []
                 cursor.execute(f"""SELECT i.* FROM items i
                                 JOIN kids k ON i.id = k.kid
                                 WHERE k.item = {story_id} AND i.type = 'comment'
@@ -158,7 +158,7 @@ async def search_stories(query: str, limit: int = 1, exclude_comments: bool = Fa
                                 LIMIT 10""")
                 comments = [Item(**dict(row)) for row in cursor.fetchall()]
                 for comment in comments:
-                    story.kids.append({"text": comment.text})
+                    story.comment_text.append(comment.text)
                     cursor.execute(f"""SELECT i.* FROM items i
                                     JOIN kids k ON i.id = k.kid
                                     WHERE k.item = {comment.id} AND i.type = 'comment'
@@ -167,7 +167,7 @@ async def search_stories(query: str, limit: int = 1, exclude_comments: bool = Fa
                     child_row = cursor.fetchone()
                     if child_row:
                         child_comment = Item(**dict(child_row))
-                        story.kids.append({"text": child_comment.text})
+                        story.comment_text.append(child_comment.text)
             stories.append(story)
     cursor.close()
     return stories

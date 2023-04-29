@@ -97,7 +97,7 @@ class ItemResponse(BaseModel):
 
 class CommentResponse(ItemResponse):
     parent: int
-    kids: list[dict] = []
+    kids: list['CommentResponse'] = []
 
     class Config:
         orm_mode = True
@@ -108,7 +108,8 @@ class StoryResponse(ItemResponse):
     url: Optional[str] = None
     score: Optional[int] = 0
     descendants: Optional[int] = 0
-    kids: list[dict] = []
+    kids: list['CommentResponse'] = []
+    comment_text: Optional[List[str]] = None
 
     class Config:
         orm_mode = True
