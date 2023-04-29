@@ -10,6 +10,7 @@ import embedder
 
 from fastapi import Query, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware import RequestTimeoutMiddleware
 from starlette.responses import FileResponse
 
 from sqlalchemy import select, create_engine, or_
@@ -51,6 +52,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(
+    RequestTimeoutMiddleware, timeout=10.0, on_timeout=lambda: {"message": "Request timed out."}
+)
+
 
 # Helper method
 
