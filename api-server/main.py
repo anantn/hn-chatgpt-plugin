@@ -158,16 +158,18 @@ async def search_stories(query: str, limit: int = 1, exclude_comments: bool = Fa
                                 LIMIT 10""")
                 comments = [Item(**dict(row)) for row in cursor.fetchall()]
                 for comment in comments:
-                    story.comment_text.append(comment.text)
-                    cursor.execute(f"""SELECT i.* FROM items i
-                                    JOIN kids k ON i.id = k.kid
-                                    WHERE k.item = {comment.id} AND i.type = 'comment'
-                                    ORDER BY k.display_order
-                                    LIMIT 1""")
-                    child_row = cursor.fetchone()
-                    if child_row:
-                        child_comment = Item(**dict(child_row))
-                        story.comment_text.append(child_comment.text)
+                    if comment.text:
+                        story.comment_text.append(comment.text)
+                        cursor.execute(f"""SELECT i.* FROM items i
+                                        JOIN kids k ON i.id = k.kid
+                                        WHERE k.item = {comment.id} AND i.type = 'comment'
+                                        ORDER BY k.display_order
+                                        LIMIT 1""")
+                        child_row = cursor.fetchone()
+                        if child_row:
+                            child_comment = Item(**dict(child_row))
+                            if child_comment.text:
+                                story.comment_text.append(child_comment.text)
             stories.append(story)
     cursor.close()
     return stories
