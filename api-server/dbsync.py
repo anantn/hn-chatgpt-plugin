@@ -221,11 +221,11 @@ async def watch_updates(encoder):
                     updates = json.loads(event.data)
                     if updates:
                         buffer.append(updates)
-                        log_with_timestamp(f"Buffer now at {len(buffer)}.")
                         if initial_fetch_completed:
                             await process_updates(buffer, encoder)
                             buffer.clear()
-                            log_with_timestamp("Buffer cleared.")
+                        else:
+                            log_with_timestamp(f"Buffer now at {len(buffer)}.")
         except aiohttp.client_exceptions.ClientConnectorError as e:
             print(f"Connection error: {e}, retrying in 5 seconds...")
             await asyncio.sleep(5)

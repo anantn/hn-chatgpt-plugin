@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hacker News: Simple Semantic Search</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+
+        header {
+            background-color: #f0f0f0;
+            padding: 1rem;
+            text-align: center;
+        }
+
+        h1 {
+            margin: 0;
+        }
+
+        main {
+            padding: 1rem;
+            text-align: center;
+        }
+
+        input[type="text"] {
+            padding: 0.5rem;
+            width: 50%;
+        }
+
+        button {
+            padding: 0.5rem;
+        }
+
+        .story {
+            border-bottom: 1px solid #ccc;
+            margin-bottom: 1rem;
+            padding-bottom: 1rem;
+        }
+
+        .story:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+
+        .title {
+            font-size: 1.2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .metadata {
+            font-size: 0.9rem;
+            margin-top: 0.5rem;
+        }
+
+        #results {
+            padding-top: 1rem;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border: 5px solid #f0f0f0;
+            border-radius: 50%;
+            border-top-color: #333;
+            animation: spin 1s infinite linear;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <h1>Hacker News: Simple Semantic Search</h1>
+    </header>
+    <main>
+        <input type="text" id="search-input" placeholder="Enter your search query..." onkeydown="handleEnterKey(event)">
+        <button onclick="search()">Search</button>
+        <div id="results"></div>
+        <div id="spinner" class="spinner" style="display: none;"></div>
+    </main>
+
+    <script>
+        function handleEnterKey(event) {
+            if (event.key === "Enter") {
+                search();
+            }
+        }
+
+        async function search() {
+            const query = document.getElementById("search-input").value;
+            if (query) {
+                // Show the spinner
+                document.getElementById("spinner").style.display = "inline-block";
+
+                const response = await fetch(`/search?query=${query}&limit=10&exclude_comments=true`);
+                const data = await response.json();
+                displayResults(data);
+
+                // Hide the spinner
+                document.getElementById("spinner").style.display = "none";
+            }
+        }
+
+
+        function displayResults(stories) {
+            const resultsDiv = document.getElementById("results");
+            resultsDiv.innerHTML = '';
+
+            for (const story of stories) {
+                const storyDiv = document.createElement("div");
+                storyDiv.className = "story";
+
+                const title = document.createElement("a");
+                title.className = "title";
+                title.href = story.url;
+                title.textContent = story.title;
+                storyDiv.appendChild(title);
+
+                const metadata = document.createElement("div");
+                metadata.className = "metadata";
+                const date = new Date(story.time * 1000).toLocaleDateString();
+                metadata.innerHTML = `<strong>Upvotes:</strong> ${story.score} | <strong>Date:</strong> ${date} | <strong><a href="${story.hn_url}">HN Link</a></strong>`;
+                storyDiv.appendChild(metadata);
+
+                resultsDiv.appendChild(storyDiv);
+            }
+        }
+    </script>
+    <a href="https://github.com/anantn/hn-chatgpt-plugin" target="_blank"
+        style="position: fixed; top: 0; right: 0; z-index: 999;">
+        <img width="149" height="149"
+            src="https://github.blog/wp-content/uploads/2008/12/forkme_right_gray_6d6d6d.png?resize=149%2C149"
+            alt="Fork me on GitHub" data-recalc-dims="1">
+    </a>
+</body>
+
+</html>

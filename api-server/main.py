@@ -120,10 +120,19 @@ def get_image():
     return FileResponse("static/hn.jpg")
 
 
+@app.get("/", include_in_schema=False)
+def get_image():
+    return FileResponse("static/index.html")
+
+
 @app.get("/search", response_model=List[StoryResponse])
-async def search_stories(query: str, limit: int = 1):
+async def search_stories(query: str, limit: int = 1, exclude_comments: bool = False):
     if limit > 5:
-        limit = 5
+        if exclude_comments:
+            if limit > 10:
+                limit = 10
+        else:
+            limit = 5
 
     # Perform semantic search
     start = time.time()
@@ -140,24 +149,25 @@ async def search_stories(query: str, limit: int = 1):
         story_row = cursor.fetchone()
         if story_row:
             story = Item(**dict(story_row))
-            story.kids = []
-            cursor.execute(f"""SELECT i.* FROM items i
-                               JOIN kids k ON i.id = k.kid
-                               WHERE k.item = {story_id} AND i.type = 'comment'
-                               ORDER BY k.display_order
-                               LIMIT 10""")
-            comments = [Item(**dict(row)) for row in cursor.fetchall()]
-            for comment in comments:
-                story.kids.append({"text": comment.text})
+            if not exclude_comments:
+                story.kids = []
                 cursor.execute(f"""SELECT i.* FROM items i
-                                   JOIN kids k ON i.id = k.kid
-                                   WHERE k.item = {comment.id} AND i.type = 'comment'
-                                   ORDER BY k.display_order
-                                   LIMIT 1""")
-                child_row = cursor.fetchone()
-                if child_row:
-                    child_comment = Item(**dict(child_row))
-                    story.kids.append({"text": child_comment.text})
+                                JOIN kids k ON i.id = k.kid
+                                WHERE k.item = {story_id} AND i.type = 'comment'
+                                ORDER BY k.display_order
+                                LIMIT 10""")
+                comments = [Item(**dict(row)) for row in cursor.fetchall()]
+                for comment in comments:
+                    story.kids.append({"text": comment.text})
+                    cursor.execute(f"""SELECT i.* FROM items i
+                                    JOIN kids k ON i.id = k.kid
+                                    WHERE k.item = {comment.id} AND i.type = 'comment'
+                                    ORDER BY k.display_order
+                                    LIMIT 1""")
+                    child_row = cursor.fetchone()
+                    if child_row:
+                        child_comment = Item(**dict(child_row))
+                        story.kids.append({"text": child_comment.text})
             stories.append(story)
     cursor.close()
     return stories
