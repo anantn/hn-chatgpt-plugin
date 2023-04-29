@@ -192,8 +192,6 @@ async def get_stories(by: Optional[str] = Query(None),
                       min_comments: Optional[int] = None, max_comments: Optional[int] = None,
                       sort_by: Union[SortBy, None] = None, sort_order: Union[SortOrder, None] = None,
                       skip: int = 0, limit: int = 10):
-    if after_time is None:
-        after_time = int(time.time()) - 24 * 60 * 60
     if sort_by is None and sort_order is None:
         sort_by = SortBy.score
         sort_order = SortOrder.desc
