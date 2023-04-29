@@ -148,6 +148,13 @@ class DocumentEmbedder:
 
         cursor.close()
 
+    def filter_comments(self, comments):
+        # Filter out comments containing "[dead]" or "[flagged]"
+        filtered_comments = [
+            comment for comment in comments if "[dead]" not in comment["text"] and "[flagged]" not in comment["text"]
+        ]
+        return filtered_comments
+
     def fetch_comments(self, parent_id):
         cursor = self.conn.cursor()
         cursor.execute(
@@ -174,12 +181,7 @@ class DocumentEmbedder:
             all_comments.append(top_level_comment)
             fetch_descendants(top_level_comment)
 
-        # Filter out comments containing "[dead]" or "[flagged]"
-        filtered_comments = [
-            comment for comment in all_comments if "[dead]" not in comment["text"] and "[flagged]" not in comment["text"]
-        ]
-
-        return filtered_comments
+        return self.filter_comments(all_comments)
 
     def clean_text(self, text):
         if text is None:

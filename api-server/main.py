@@ -2,7 +2,6 @@ import os
 import copy
 import time
 import dbsync
-import sqlite3
 import uvicorn
 import asyncio
 
@@ -53,7 +52,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Helper CRUD method
+# Helper method
 
 
 async def get_items(item_type: Optional[ItemType] = None,
@@ -122,9 +121,9 @@ def get_image():
 
 
 @app.get("/search", response_model=List[StoryResponse])
-async def search_stories(query: str, limit: int = 5):
-    if limit > 10:
-        limit = 10
+async def search_stories(query: str, limit: int = 1):
+    if limit > 5:
+        limit = 5
 
     # Perform semantic search
     start = time.time()
@@ -133,7 +132,7 @@ async def search_stories(query: str, limit: int = 5):
     print(f"Search took {stop - start:.2f} seconds - {len(story_ids)} results")
     story_ids = story_ids[:limit]
 
-    # Fetch stories and their kid comments from the database
+    # Fetch stories, their top 10 kid comments, and first child comment of each from the database
     cursor = dbsync.conn.cursor()
     stories = []
     for story_id in story_ids:
@@ -142,10 +141,23 @@ async def search_stories(query: str, limit: int = 5):
         if story_row:
             story = Item(**dict(story_row))
             story.kids = []
-            for comment in doc_encoder.fetch_comment_data(story_id):
-                if len(story.kids) >= 100:
-                    break
-                story.kids.append({"text": comment["text"]})
+            cursor.execute(f"""SELECT i.* FROM items i
+                               JOIN kids k ON i.id = k.kid
+                               WHERE k.item = {story_id} AND i.type = 'comment'
+                               ORDER BY k.display_order
+                               LIMIT 10""")
+            comments = [Item(**dict(row)) for row in cursor.fetchall()]
+            for comment in comments:
+                story.kids.append({"text": comment.text})
+                cursor.execute(f"""SELECT i.* FROM items i
+                                   JOIN kids k ON i.id = k.kid
+                                   WHERE k.item = {comment.id} AND i.type = 'comment'
+                                   ORDER BY k.display_order
+                                   LIMIT 1""")
+                child_row = cursor.fetchone()
+                if child_row:
+                    child_comment = Item(**dict(child_row))
+                    story.kids.append({"text": child_comment.text})
             stories.append(story)
     cursor.close()
     return stories
@@ -168,6 +180,8 @@ async def get_stories(by: Optional[str] = Query(None),
                       min_comments: Optional[int] = None, max_comments: Optional[int] = None,
                       sort_by: Union[SortBy, None] = None, sort_order: Union[SortOrder, None] = None,
                       skip: int = 0, limit: int = 10):
+    if after_time is None:
+        after_time = int(time.time()) - 24 * 60 * 60
     if sort_by is None and sort_order is None:
         sort_by = SortBy.score
         sort_order = SortOrder.desc

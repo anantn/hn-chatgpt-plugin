@@ -179,7 +179,7 @@ def get_schema(app):
     openapi_schema["paths"]["/search"]["get"]["parameters"][0]["description"] = \
         "Query string to search for."
     openapi_schema["paths"]["/search"]["get"]["parameters"][1]["description"] = \
-        "Limit the number of results returned (default 5, max 10)."
+        "Limit the number of results returned (default 1, max 5)."
 
     openapi_schema["paths"]["/story"]["get"]["summary"] = \
         "Retrieve a story along with all its comments."

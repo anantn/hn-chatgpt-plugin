@@ -24,10 +24,10 @@ paths:
       - required: false
         schema:
           type: integer
-          default: 5
+          default: 1
         name: limit
         in: query
-        description: Limit the number of results returned (default 5, max 10).
+        description: Limit the number of results returned (default 1, max 5).
       responses:
         '200':
           description: Successful Response
@@ -63,13 +63,6 @@ paths:
       parameters:
       - required: false
         schema:
-          type: array
-          items:
-            type: integer
-        name: ids
-        in: query
-      - required: false
-        schema:
           type: string
         name: by
         in: query
@@ -85,7 +78,7 @@ paths:
           type: integer
         name: after_time
         in: query
-        description: Find stories submitted at or after this UNIX time.
+        description: Find stories submitted at or after this UNIX time. Defaults to last day.
       - required: false
         schema:
           type: integer
@@ -129,12 +122,6 @@ paths:
         name: sort_order
         in: query
         description: Sort results in descending (default) or ascending order of the sort_by parameter.
-      - required: false
-        schema:
-          type: string
-        name: query
-        in: query
-        description: Perform a semantic search using this phrase against text found in stories and all their comments.
       - required: false
         schema:
           type: integer
@@ -184,13 +171,6 @@ paths:
       parameters:
       - required: false
         schema:
-          type: array
-          items:
-            type: integer
-        name: ids
-        in: query
-      - required: false
-        schema:
           type: string
         name: by
         in: query
@@ -222,12 +202,6 @@ paths:
             - desc
         name: sort_order
         in: query
-      - required: false
-        schema:
-          type: string
-        name: query
-        in: query
-      - required: false
         schema:
           type: integer
           default: 0
@@ -253,13 +227,6 @@ paths:
       summary: Find polls matching a variety of criteria. Polls are sorted by their score (upvotes) by default.
       operationId: get_polls
       parameters:
-      - required: false
-        schema:
-          type: array
-          items:
-            type: integer
-        name: ids
-        in: query
       - required: false
         schema:
           type: string
@@ -292,12 +259,6 @@ paths:
             - desc
         name: sort_order
         in: query
-      - required: false
-        schema:
-          type: string
-        name: query
-        in: query
-        description: Search for polls whose title or text contains this phrase.
       - required: false
         schema:
           type: integer
