@@ -252,7 +252,7 @@ async def main():
     # Catch up on all data updates
     # Disable embedder task for now
     # updates, embedder_task = await dbsync.run(DB_PATH, doc_encoder)
-    updates = await dbsync.run(DB_PATH)
+    updates = await dbsync.run(DB_PATH, doc_encoder)
 
     # Catch up on document embeddings, offset = go back 100 stories and refresh
     await doc_encoder.process_catchup_stories(100)
