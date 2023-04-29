@@ -3,6 +3,7 @@ import copy
 import dbsync
 import uvicorn
 import asyncio
+import embedder
 
 from fastapi import Query, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -14,7 +15,7 @@ from typing import List, Optional, Union
 from schema import *
 
 # Database connection
-DB_PATH = os.environ.get("DB_PATH")
+DB_PATH = os.path.expanduser(os.environ.get("DB_PATH"))
 if not DB_PATH:
     print("Please set the DB_PATH environment variable to the path of the SQLite database.")
     exit()
@@ -243,13 +244,26 @@ def get_users(ids: Optional[List[str]] = Query(None),
 
 
 async def main():
-    updates = await dbsync.run(DB_PATH)
-    config = uvicorn.Config(app, port=8000, log_level="info", reload=True)
-    server = uvicorn.Server(config)
+    # Initialize embedder model for reuse
+    encoder = embedder.Embedder()
+    encoder_task = asyncio.create_task(encoder._process_requests())
 
+    # Catch up on all data updates
+    updates = await dbsync.run(DB_PATH, encoder)
+
+    # Catch up on document embeddings
+    doc_encoder = embedder.DocumentEmbedder(DB_PATH, encoder)
+    # offset = go back 100 stories and refresh
+    await doc_encoder.process_stories(100)
+
+    # Start API server
+    server = uvicorn.Server(uvicorn.Config(
+        app, port=8000, log_level="info", reload=True))
     uvicorn_task = asyncio.create_task(server.serve())
+
+    # If any task aborts, cancel the others and abort program
     _, pending = await asyncio.wait(
-        {updates, uvicorn_task}, return_when=asyncio.FIRST_COMPLETED
+        {updates, encoder_task, uvicorn_task}, return_when=asyncio.FIRST_COMPLETED
     )
     for task in pending:
         task.cancel()

@@ -5,7 +5,7 @@ import aiohttp
 import sqlite3
 import requests
 from tqdm import tqdm
-from aiohttp_sse_client import client as sse_client
+from aiohttp_sse_client.client import EventSource
 
 BATCH_SIZE = 64
 OFFSET = 10000
@@ -97,7 +97,7 @@ async def fetch_and_insert_items(session, start_id, end_id):
     for i in range(start_id, end_id + 1, BATCH_SIZE):
         retry_count = 0
         max_retries = 5
-        retry_delay = 10
+        retry_delay = 5
         while retry_count < max_retries:
             try:
                 fetched_items = await asyncio.gather(*[fetch_item(session, i + j) for j in range(BATCH_SIZE)])
@@ -150,11 +150,11 @@ async def process_updates(updates_array):
         f"Updated {len(items)} items and {len(profiles)} profiles.")
 
 
-async def watch_updates():
+async def watch_updates(encoder):
     global disconnect, initial_fetch_completed
     while not disconnect:
         try:
-            async with sse_client.EventSource(f"{HN_URL}/updates.json") as client:
+            async with EventSource(f"{HN_URL}/updates.json",  timeout=-1) as client:
                 async for event in client:
                     if disconnect:
                         break
@@ -167,12 +167,12 @@ async def watch_updates():
                             buffer.clear()
                             log_with_timestamp("Buffer cleared.")
         except aiohttp.client_exceptions.ClientConnectorError as e:
-            print(f"Connection error: {e}, retrying in 10 seconds...")
-            await asyncio.sleep(10)
+            print(f"Connection error: {e}, retrying in 5 seconds...")
+            await asyncio.sleep(5)
         except TimeoutError:
             log_with_timestamp(
-                "Connection to SSE channel timed out. Retrying in 10 seconds...")
-            await asyncio.sleep(10)
+                "Connection to SSE channel timed out. Retrying in 5 seconds...")
+            await asyncio.sleep(5)
 
 
 def shutdown():
@@ -183,10 +183,10 @@ def shutdown():
     log_with_timestamp("Shutting down SSE channel...")
 
 
-async def run(db_path):
+async def run(db_path, encoder):
     global conn, initial_fetch_completed
     conn = sqlite3.connect(db_path)
-    updates = asyncio.create_task(watch_updates())
+    updates = asyncio.create_task(watch_updates(encoder))
 
     async with aiohttp.ClientSession() as session:
         # Fetch max item ID from Firebase and SQLite.
