@@ -97,7 +97,7 @@ class ItemResponse(BaseModel):
 
 class CommentResponse(ItemResponse):
     parent: int
-    kids: list['CommentResponse'] = []
+    kids: list[dict] = []
 
     class Config:
         orm_mode = True
@@ -108,7 +108,7 @@ class StoryResponse(ItemResponse):
     url: Optional[str] = None
     score: Optional[int] = 0
     descendants: Optional[int] = 0
-    kids: list['CommentResponse'] = []
+    kids: list[dict] = []
 
     class Config:
         orm_mode = True
@@ -174,6 +174,13 @@ def get_schema(app):
         },
     }
 
+    openapi_schema["paths"]["/search"]["get"]["summary"] = \
+        "Performs a semantic search on story title, text, and comments and returns matching stories with their comments."
+    openapi_schema["paths"]["/search"]["get"]["parameters"][0]["description"] = \
+        "Query string to search for."
+    openapi_schema["paths"]["/search"]["get"]["parameters"][1]["description"] = \
+        "Limit the number of results returned (default 5, max 10)."
+
     openapi_schema["paths"]["/story"]["get"]["summary"] = \
         "Retrieve a story along with all its comments."
     openapi_schema["paths"]["/story"]["get"]["parameters"][0]["description"] = \
@@ -192,93 +199,81 @@ def get_schema(app):
     openapi_schema["paths"]["/stories"]["get"]["summary"] = \
         "Search for stories matching a variety of criteria. Stories are sorted by their score (upvotes) by default."
     openapi_schema["paths"]["/stories"]["get"]["parameters"][0]["description"] = \
-        "Find stories with these IDs, useful if you already know which stories you want metadata for."
-    openapi_schema["paths"]["/stories"]["get"]["parameters"][1]["description"] = \
         "Find stories submitted by this user."
-    openapi_schema["paths"]["/stories"]["get"]["parameters"][2]["description"] = \
+    openapi_schema["paths"]["/stories"]["get"]["parameters"][1]["description"] = \
         "Find stories submitted at or before this UNIX time."
-    openapi_schema["paths"]["/stories"]["get"]["parameters"][3]["description"] = \
+    openapi_schema["paths"]["/stories"]["get"]["parameters"][2]["description"] = \
         "Find stories submitted at or after this UNIX time."
-    openapi_schema["paths"]["/stories"]["get"]["parameters"][4]["description"] = \
+    openapi_schema["paths"]["/stories"]["get"]["parameters"][3]["description"] = \
         "Find stories with a score equal or higher than this number."
-    openapi_schema["paths"]["/stories"]["get"]["parameters"][5]["description"] = \
+    openapi_schema["paths"]["/stories"]["get"]["parameters"][4]["description"] = \
         "Find stories with a score equal or lower than this number."
-    openapi_schema["paths"]["/stories"]["get"]["parameters"][6]["description"] = \
+    openapi_schema["paths"]["/stories"]["get"]["parameters"][5]["description"] = \
         "Find stories with a number of comments equal or higher than this number."
-    openapi_schema["paths"]["/stories"]["get"]["parameters"][7]["description"] = \
+    openapi_schema["paths"]["/stories"]["get"]["parameters"][6]["description"] = \
         "Find stories with a number of comments equal or lower than this number."
-    openapi_schema["paths"]["/stories"]["get"]["parameters"][8]["description"] = \
+    openapi_schema["paths"]["/stories"]["get"]["parameters"][7]["description"] = \
         "Sort results by score (upvotes, default), descendants (number of comments), time (of submission)."
-    openapi_schema["paths"]["/stories"]["get"]["parameters"][9]["description"] = \
+    openapi_schema["paths"]["/stories"]["get"]["parameters"][8]["description"] = \
         "Sort results in descending (default) or ascending order of the sort_by parameter."
-    openapi_schema["paths"]["/stories"]["get"]["parameters"][10]["description"] = \
-        "Search for stories matching this phrase. Performs a semantic search on story title, text, and comments."
-    openapi_schema["paths"]["/stories"]["get"]["parameters"][11]["description"] = \
+    openapi_schema["paths"]["/stories"]["get"]["parameters"][9]["description"] = \
         "Offset the results returned, use to page through multiple results."
-    openapi_schema["paths"]["/stories"]["get"]["parameters"][12]["description"] = \
+    openapi_schema["paths"]["/stories"]["get"]["parameters"][10]["description"] = \
         "Limit the number of results returned (default 10, max 100)."
 
     openapi_schema["paths"]["/comments"]["get"]["summary"] = \
         "Find comments matching a variety of criteria. Comments are sorted by the most recent ones by default."
     openapi_schema["paths"]["/comments"]["get"]["parameters"][0]["description"] = \
-        "Find comments with these IDs, useful if you already know which comments you want metadata for."
-    openapi_schema["paths"]["/comments"]["get"]["parameters"][1]["description"] = \
         "Find comments submitted by this user."
-    openapi_schema["paths"]["/comments"]["get"]["parameters"][2]["description"] = \
+    openapi_schema["paths"]["/comments"]["get"]["parameters"][1]["description"] = \
         "Find comments submitted at or before this UNIX time."
-    openapi_schema["paths"]["/comments"]["get"]["parameters"][3]["description"] = \
+    openapi_schema["paths"]["/comments"]["get"]["parameters"][2]["description"] = \
         "Find comments submitted at or after this UNIX time."
-    openapi_schema["paths"]["/comments"]["get"]["parameters"][4]["description"] = \
+    openapi_schema["paths"]["/comments"]["get"]["parameters"][3]["description"] = \
         "Sort results by score (upvotes), descendants (number of comments), time (of submission, default)."
-    openapi_schema["paths"]["/comments"]["get"]["parameters"][5]["description"] = \
+    openapi_schema["paths"]["/comments"]["get"]["parameters"][4]["description"] = \
         "Sort results in descending (default) or ascending order of the sort_by parameter."
-    openapi_schema["paths"]["/comments"]["get"]["parameters"][6]["description"] = \
-        "Search for comments containing this text."
-    openapi_schema["paths"]["/comments"]["get"]["parameters"][7]["description"] = \
+    openapi_schema["paths"]["/comments"]["get"]["parameters"][5]["description"] = \
         "Offset the results returned, use to page through multiple results."
-    openapi_schema["paths"]["/comments"]["get"]["parameters"][8]["description"] = \
+    openapi_schema["paths"]["/comments"]["get"]["parameters"][6]["description"] = \
         "Limit the number of results returned (default 50, max 100)."
 
     openapi_schema["paths"]["/polls"]["get"]["summary"] = \
         "Find polls matching a variety of criteria. Polls are sorted by their score (upvotes) by default."
     openapi_schema["paths"]["/polls"]["get"]["parameters"][0]["description"] = \
-        "Find polls with these IDs, useful if you already know which polls you want metadata for."
-    openapi_schema["paths"]["/polls"]["get"]["parameters"][1]["description"] = \
         "Find polls submitted by this user."
-    openapi_schema["paths"]["/polls"]["get"]["parameters"][2]["description"] = \
+    openapi_schema["paths"]["/polls"]["get"]["parameters"][1]["description"] = \
         "Find polls submitted at or before this UNIX time."
-    openapi_schema["paths"]["/polls"]["get"]["parameters"][3]["description"] = \
+    openapi_schema["paths"]["/polls"]["get"]["parameters"][2]["description"] = \
         "Find polls submitted at or after this UNIX time."
-    openapi_schema["paths"]["/polls"]["get"]["parameters"][4]["description"] = \
+    openapi_schema["paths"]["/polls"]["get"]["parameters"][3]["description"] = \
         "Sort results by score (upvotes, default), descendants (number of comments), time (of submission)."
-    openapi_schema["paths"]["/polls"]["get"]["parameters"][5]["description"] = \
+    openapi_schema["paths"]["/polls"]["get"]["parameters"][4]["description"] = \
         "Sort results in descending (default) or ascending order of the sort_by parameter."
-    openapi_schema["paths"]["/polls"]["get"]["parameters"][6]["description"] = \
-        "Search for polls whose title or text contains this phrase."
-    openapi_schema["paths"]["/polls"]["get"]["parameters"][7]["description"] = \
+    openapi_schema["paths"]["/polls"]["get"]["parameters"][5]["description"] = \
         "Offset the results returned, use to page through multiple results."
-    openapi_schema["paths"]["/polls"]["get"]["parameters"][8]["description"] = \
+    openapi_schema["paths"]["/polls"]["get"]["parameters"][6]["description"] = \
         "Limit the number of results returned (default 10, max 100)."
+    openapi_schema["paths"]["/polls"]["get"]["parameters"][7]["description"] = \
+        "Search for polls whose title or text contains this phrase."
 
     openapi_schema["paths"]["/users"]["get"]["summary"] = \
         "Find users matching a variety of criteria. Users are sorted by their karma (upvotes) by default."
     openapi_schema["paths"]["/users"]["get"]["parameters"][0]["description"] = \
-        "Find users with these IDs, useful if you already know which users you want metadata for."
-    openapi_schema["paths"]["/users"]["get"]["parameters"][1]["description"] = \
         "Find users created at or before this UNIX time."
-    openapi_schema["paths"]["/users"]["get"]["parameters"][2]["description"] = \
+    openapi_schema["paths"]["/users"]["get"]["parameters"][1]["description"] = \
         "Find users created at or after this UNIX time."
-    openapi_schema["paths"]["/users"]["get"]["parameters"][3]["description"] = \
+    openapi_schema["paths"]["/users"]["get"]["parameters"][2]["description"] = \
         "Find users with karma at or above this number."
-    openapi_schema["paths"]["/users"]["get"]["parameters"][4]["description"] = \
+    openapi_schema["paths"]["/users"]["get"]["parameters"][3]["description"] = \
         "Find users with karma at or below this number."
-    openapi_schema["paths"]["/users"]["get"]["parameters"][5]["description"] = \
+    openapi_schema["paths"]["/users"]["get"]["parameters"][4]["description"] = \
         "Sort results by karma (default), or created (account creation time)."
-    openapi_schema["paths"]["/users"]["get"]["parameters"][6]["description"] = \
+    openapi_schema["paths"]["/users"]["get"]["parameters"][5]["description"] = \
         "Sort results in descending (default) or ascending order of the sort_by parameter."
-    openapi_schema["paths"]["/users"]["get"]["parameters"][7]["description"] = \
+    openapi_schema["paths"]["/users"]["get"]["parameters"][6]["description"] = \
         "Offset the results returned, use to page through multiple results."
-    openapi_schema["paths"]["/users"]["get"]["parameters"][8]["description"] = \
+    openapi_schema["paths"]["/users"]["get"]["parameters"][7]["description"] = \
         "Limit the number of results returned (default 10, max 100)."
 
     openapi_schema["components"]["schemas"]["SortBy"]["description"] = \

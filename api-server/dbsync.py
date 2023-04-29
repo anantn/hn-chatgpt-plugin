@@ -9,7 +9,7 @@ from tqdm import tqdm
 from aiohttp_sse_client.client import EventSource
 
 BATCH_SIZE = 64
-OFFSET = 10000
+OFFSET = 1000
 HN_URL = "https://hacker-news.firebaseio.com/v0"
 conn = None
 

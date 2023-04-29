@@ -41,7 +41,7 @@ class Index:
         for story_id in I[0]:
             if story_id not in seen_ids:
                 seen_ids.add(story_id)
-                unique_story_ids.append(story_id)
+                unique_story_ids.append(story_id.item())
         return unique_story_ids
 
     async def embed_query(self, query):

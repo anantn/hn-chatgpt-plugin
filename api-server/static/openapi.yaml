@@ -10,10 +10,37 @@ info:
     name: MIT License
     url: https://opensource.org/license/mit/
 paths:
+  "/search":
+    get:
+      summary: Performs a semantic search on story title, text, and comments and returns matching stories with their comments.
+      operationId: search
+      parameters:
+      - required: true
+        schema:
+          type: string
+        name: query
+        in: query
+        description: Query string to search for.
+      - required: false
+        schema:
+          type: integer
+          default: 5
+        name: limit
+        in: query
+        description: Limit the number of results returned (default 5, max 10).
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  "$ref": "#/components/schemas/Response"
   "/story":
     get:
       summary: Retrieve a story along with all its comments.
-      operationId: get_story_story_get
+      operationId: get_story
       parameters:
       - required: false
         schema:
@@ -32,7 +59,7 @@ paths:
   "/stories":
     get:
       summary: Search for stories matching a variety of criteria. Stories are sorted by their score (upvotes) by default.
-      operationId: get_stories_stories_get
+      operationId: get_stories
       parameters:
       - required: false
         schema:
@@ -134,7 +161,7 @@ paths:
   "/comment":
     get:
       summary: Retrieve a comment along with all its replies.
-      operationId: get_comment_comment_get
+      operationId: get_comment
       parameters:
       - required: false
         schema:
@@ -153,7 +180,7 @@ paths:
   "/comments":
     get:
       summary: Find comments matching a variety of criteria. Comments are sorted by the most recent ones by default.
-      operationId: get_comments_comments_get
+      operationId: get_comments
       parameters:
       - required: false
         schema:
@@ -224,7 +251,7 @@ paths:
   "/polls":
     get:
       summary: Find polls matching a variety of criteria. Polls are sorted by their score (upvotes) by default.
-      operationId: get_polls_polls_get
+      operationId: get_polls
       parameters:
       - required: false
         schema:
@@ -295,7 +322,7 @@ paths:
   "/user":
     get:
       summary: Retrieve a user along with all their submissions (story, comment, or poll IDs).
-      operationId: get_user_user_get
+      operationId: get_user
       parameters:
       - required: false
         schema:
@@ -314,7 +341,7 @@ paths:
   "/users":
     get:
       summary: Find users matching a variety of criteria. Users are sorted by their karma (upvotes) by default.
-      operationId: get_users_users_get
+      operationId: get_users
       parameters:
       - required: false
         schema:
