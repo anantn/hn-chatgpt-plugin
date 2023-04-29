@@ -7,7 +7,7 @@ import requests
 from tqdm import tqdm
 from aiohttp_sse_client import client as sse_client
 
-BATCH_SIZE = 128
+BATCH_SIZE = 64
 OFFSET = 10000
 HN_URL = "https://hacker-news.firebaseio.com/v0"
 conn = None
@@ -152,6 +152,9 @@ async def watch_updates():
                             await process_updates(buffer)
                             buffer.clear()
                             log_with_timestamp("Buffer cleared.")
+        except aiohttp.client_exceptions.ClientConnectorError as e:
+            print(f"Connection error: {e}, retrying in 10 seconds...")
+            await asyncio.sleep(10)
         except TimeoutError:
             log_with_timestamp(
                 "Connection to SSE channel timed out. Retrying in 10 seconds...")
