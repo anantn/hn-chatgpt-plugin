@@ -95,9 +95,23 @@ def insert_users(users):
 async def fetch_and_insert_items(session, start_id, end_id):
     progress_bar = tqdm(total=(end_id - start_id + 1))
     for i in range(start_id, end_id + 1, BATCH_SIZE):
-        fetched_items = await asyncio.gather(*[fetch_item(session, i + j) for j in range(BATCH_SIZE)])
-        insert_items(fetched_items)
-        progress_bar.update(BATCH_SIZE)
+        retry_count = 0
+        max_retries = 5
+        retry_delay = 10
+        while retry_count < max_retries:
+            try:
+                fetched_items = await asyncio.gather(*[fetch_item(session, i + j) for j in range(BATCH_SIZE)])
+                insert_items(fetched_items)
+                progress_bar.update(BATCH_SIZE)
+                break
+            except aiohttp.client_exceptions.ClientConnectorError as e:
+                print(
+                    f"Connection error: {e}, retrying in {retry_delay} seconds...")
+                await asyncio.sleep(retry_delay)
+                retry_count += 1
+            except Exception as e:
+                print(f"Unexpected error: {e}")
+                raise e
     progress_bar.close()
 
 
