@@ -9,10 +9,10 @@
     },
     "api": {
         "type": "openapi",
-        "url": "http://localhost:8000/openapi.yaml",
+        "url": "https://hn.kix.in/openapi.yaml",
         "is_user_authenticated": false
     },
-    "logo_url": "http://localhost:8000/hn.jpg",
+    "logo_url": "https://hn.kix.in/hn.jpg",
     "contact_email": "anant@kix.in",
     "legal_info_url": "https://www.ycombinator.com/legal/"
 }

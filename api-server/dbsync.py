@@ -1,5 +1,6 @@
 import time
 import json
+import copy
 import asyncio
 import aiohttp
 import sqlite3
@@ -118,9 +119,57 @@ async def fetch_and_insert_items(session, start_id, end_id):
 buffer = []
 disconnect = False
 initial_fetch_completed = False
+affected_stories = set()
 
 
-async def process_updates(updates_array):
+def find_story_id_for_item(item_id):
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        WITH RECURSIVE item_hierarchy(id, parent) AS (
+            SELECT i.id, i.parent
+            FROM items i
+            WHERE i.id = ?
+            UNION ALL
+            SELECT i.id, i.parent
+            FROM items i
+            JOIN item_hierarchy ih ON i.id = ih.parent
+            WHERE i.type IN ('comment', 'story')
+        )
+        SELECT id
+        FROM item_hierarchy
+        WHERE parent IS NULL
+        """,
+        (item_id,)
+    )
+    story = cursor.fetchone()
+    cursor.close()
+    return story["id"] if story else None
+
+
+def extract_affected_stories(item_ids):
+    affected = set()
+    for item_id in item_ids:
+        story_id = find_story_id_for_item(item_id)
+        if story_id:
+            affected.add(story_id)
+    return affected
+
+
+async def process_affected_stories(encoder):
+    global affected_stories
+    while not disconnect:
+        if len(affected_stories) > 0:
+            to_process = copy.copy(affected_stories)
+            affected_stories.clear()
+            log_with_timestamp(
+                f"Processing affected stories: {len(to_process)}")
+            await encoder.process_stories(to_process)
+            log_with_timestamp("Affected stories queue cleared.")
+        await asyncio.sleep(600)
+
+
+async def process_updates(updates_array, encoder):
     items = []
     profiles = []
 
@@ -149,6 +198,12 @@ async def process_updates(updates_array):
     log_with_timestamp(
         f"Updated {len(items)} items and {len(profiles)} profiles.")
 
+    global affected_stories
+    affected = extract_affected_stories(items)
+    log_with_timestamp(
+        f"Updates impacted {len(affected)} stories, adding to set.")
+    affected_stories.update(affected)
+
 
 async def watch_updates(encoder):
     global disconnect, initial_fetch_completed
@@ -163,7 +218,7 @@ async def watch_updates(encoder):
                         buffer.append(updates)
                         log_with_timestamp(f"Buffer now at {len(buffer)}.")
                         if initial_fetch_completed:
-                            await process_updates(buffer)
+                            await process_updates(buffer, encoder)
                             buffer.clear()
                             log_with_timestamp("Buffer cleared.")
         except aiohttp.client_exceptions.ClientConnectorError as e:
@@ -186,7 +241,9 @@ def shutdown():
 async def run(db_path, encoder):
     global conn, initial_fetch_completed
     conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
     updates = asyncio.create_task(watch_updates(encoder))
+    embedding_task = asyncio.create_task(process_affected_stories(encoder))
 
     async with aiohttp.ClientSession() as session:
         # Fetch max item ID from Firebase and SQLite.
@@ -202,4 +259,4 @@ async def run(db_path, encoder):
             f"Finished initial fetch, now inserting updates (buffered {len(buffer)}).")
         initial_fetch_completed = True
 
-    return updates
+    return updates, embedding_task

@@ -247,14 +247,13 @@ async def main():
     # Initialize embedder model for reuse
     encoder = embedder.Embedder()
     encoder_task = asyncio.create_task(encoder._process_requests())
+    doc_encoder = embedder.DocumentEmbedder(DB_PATH, encoder)
 
     # Catch up on all data updates
-    updates = await dbsync.run(DB_PATH, encoder)
+    updates, embedder_task = await dbsync.run(DB_PATH, doc_encoder)
 
-    # Catch up on document embeddings
-    doc_encoder = embedder.DocumentEmbedder(DB_PATH, encoder)
-    # offset = go back 100 stories and refresh
-    await doc_encoder.process_stories(100)
+    # Catch up on document embeddings, offset = go back 100 stories and refresh
+    await doc_encoder.process_catchup_stories(100)
 
     # Start API server
     server = uvicorn.Server(uvicorn.Config(
@@ -263,7 +262,7 @@ async def main():
 
     # If any task aborts, cancel the others and abort program
     _, pending = await asyncio.wait(
-        {updates, encoder_task, uvicorn_task}, return_when=asyncio.FIRST_COMPLETED
+        {updates, embedder_task, encoder_task, uvicorn_task}, return_when=asyncio.FIRST_COMPLETED
     )
     for task in pending:
         task.cancel()

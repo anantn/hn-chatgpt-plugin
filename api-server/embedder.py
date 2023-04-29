@@ -14,23 +14,32 @@ class Embedder:
     def __init__(self, model_name='hkunlp/instructor-large', max_seq_length=1024):
         self.model = INSTRUCTOR(model_name)
         self.model.max_seq_length = max_seq_length
-        self.request_queue = asyncio.Queue()
+        self.high_priority_queue = asyncio.Queue()
+        self.low_priority_queue = asyncio.Queue()
         self._stop_event = asyncio.Event()
 
-    async def encode(self, text_pairs):
+    async def encode(self, text_pairs, priority=False):
         result_queue = asyncio.Queue()
-        await self.request_queue.put((text_pairs, result_queue))
+        if priority:
+            await self.high_priority_queue.put((text_pairs, result_queue))
+        else:
+            await self.low_priority_queue.put((text_pairs, result_queue))
         return await result_queue.get()
 
     async def _process_requests(self):
         while not self._stop_event.is_set():
-            text_pairs, result_queue = await self.request_queue.get()
+            if not self.high_priority_queue.empty():
+                text_pairs, result_queue = await self.high_priority_queue.get()
+            else:
+                text_pairs, result_queue = await self.low_priority_queue.get()
+
             embeddings = self.model.encode(text_pairs)
             await result_queue.put(embeddings)
 
     async def shutdown(self):
         self._stop_event.set()
-        await self.request_queue.join()
+        await self.high_priority_queue.join()
+        await self.low_priority_queue.join()
 
 
 class DocumentEmbedder:
@@ -59,11 +68,12 @@ class DocumentEmbedder:
             )
         """)
 
-    async def process_story(self, story_id):
-        constraint = "FROM items WHERE type = 'story' AND id = " + story_id
+    async def process_stories(self, story_ids):
+        story_ids_str = ', '.join(map(str, story_ids))
+        constraint = f"FROM items WHERE type = 'story' AND id IN ({story_ids_str})"
         await self.process_stories_with_constraint(constraint)
 
-    async def process_stories(self, offset=0):
+    async def process_catchup_stories(self, offset=0):
         # Fetch all interesting stories
         constraint = "FROM items WHERE type = 'story' AND score >= 20 AND descendants >= 3"
 
@@ -182,6 +192,8 @@ class DocumentEmbedder:
         return filtered_comments
 
     def clean_text(self, text):
+        if text is None:
+            return ""
         text = re.sub("<[^>]*>", "", text)
         text = re.sub("\r\n", "\n", text)
         text = html.unescape(text)
