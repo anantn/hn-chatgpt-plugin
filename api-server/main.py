@@ -1,8 +1,11 @@
 import os
 import copy
+import time
 import dbsync
 import uvicorn
 import asyncio
+
+import vectors
 import embedder
 
 from fastapi import Query, FastAPI, HTTPException
@@ -25,6 +28,7 @@ engine = create_engine(
 session_factory = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 scoped_session = scoped_session(session_factory)
 Base.metadata.create_all(bind=engine)
+search_index = None
 
 app = FastAPI()
 
@@ -51,12 +55,12 @@ app.add_middleware(
 # Helper CRUD method
 
 
-def get_items(item_type: Optional[ItemType] = None, ids: Optional[List[int]] = None,
-              by: Optional[str] = None, before_time: Optional[int] = None, after_time: Optional[int] = None,
-              min_score: Optional[int] = None, max_score: Optional[int] = None,
-              min_comments: Optional[int] = None, max_comments: Optional[int] = None,
-              sort_by: Union[SortBy, None] = None, sort_order: Union[SortOrder, None] = None,
-              query: Optional[str] = None, skip: int = 0, limit: int = 10):
+async def get_items(item_type: Optional[ItemType] = None, ids: Optional[List[int]] = None,
+                    by: Optional[str] = None, before_time: Optional[int] = None, after_time: Optional[int] = None,
+                    min_score: Optional[int] = None, max_score: Optional[int] = None,
+                    min_comments: Optional[int] = None, max_comments: Optional[int] = None,
+                    sort_by: Union[SortBy, None] = None, sort_order: Union[SortOrder, None] = None,
+                    query: Optional[str] = None, skip: int = 0, limit: int = 10):
     if limit > 100:
         limit = 100
 
@@ -103,18 +107,18 @@ def get_items(item_type: Optional[ItemType] = None, ids: Optional[List[int]] = N
 # API endpoints
 
 
-@app.get("/.well-known/ai-plugin.json")
+@app.get("/.well-known/ai-plugin.json", include_in_schema=False)
 def get_plugin():
     return FileResponse("static/ai-plugin.json")
 
 
-@app.get("/openapi.yaml")
-def get_plugin():
+@app.get("/openapi.yaml", include_in_schema=False)
+def get_openapi_spec():
     return FileResponse("static/openapi.yaml")
 
 
-@app.get("/hn.jpg")
-def get_plugin():
+@app.get("/hn.jpg", include_in_schema=False)
+def get_image():
     return FileResponse("static/hn.jpg")
 
 
@@ -129,18 +133,18 @@ def get_story(id: int = Query(1)):
 
 
 @app.get("/stories", response_model=List[StoryResponse])
-def get_stories(ids: Optional[List[int]] = Query(None), by: Optional[str] = None,
-                before_time: Optional[int] = None, after_time: Optional[int] = None,
-                min_score: Optional[int] = None, max_score: Optional[int] = None,
-                min_comments: Optional[int] = None, max_comments: Optional[int] = None,
-                sort_by: Union[SortBy, None] = None, sort_order: Union[SortOrder, None] = None,
-                query: Optional[str] = None, skip: int = 0, limit: int = 10):
+async def get_stories(ids: Optional[List[int]] = Query(None), by: Optional[str] = None,
+                      before_time: Optional[int] = None, after_time: Optional[int] = None,
+                      min_score: Optional[int] = None, max_score: Optional[int] = None,
+                      min_comments: Optional[int] = None, max_comments: Optional[int] = None,
+                      sort_by: Union[SortBy, None] = None, sort_order: Union[SortOrder, None] = None,
+                      query: Optional[str] = None, skip: int = 0, limit: int = 10):
     if sort_by is None and sort_order is None:
         sort_by = SortBy.score
         sort_order = SortOrder.desc
-    return get_items(item_type=ItemType.story, ids=ids, by=by, before_time=before_time, after_time=after_time,
-                     min_score=min_score, max_score=max_score, min_comments=min_comments, max_comments=max_comments,
-                     sort_by=sort_by, sort_order=sort_order, query=query, skip=skip, limit=limit)
+    return await get_items(item_type=ItemType.story, ids=ids, by=by, before_time=before_time, after_time=after_time,
+                           min_score=min_score, max_score=max_score, min_comments=min_comments, max_comments=max_comments,
+                           sort_by=sort_by, sort_order=sort_order, query=query, skip=skip, limit=limit)
 
 
 @app.get("/comment", response_model=CommentResponse)
@@ -154,27 +158,27 @@ def get_comment(id: int = Query(1)):
 
 
 @app.get("/comments", response_model=List[CommentResponse])
-def get_comments(ids: Optional[List[int]] = Query(None), by: Optional[str] = None,
-                 before_time: Optional[int] = None, after_time: Optional[int] = None,
-                 sort_by: Union[SortBy, None] = None, sort_order: Union[SortOrder, None] = None,
-                 query: Optional[str] = None, skip: int = 0, limit: int = 50):
+async def get_comments(ids: Optional[List[int]] = Query(None), by: Optional[str] = None,
+                       before_time: Optional[int] = None, after_time: Optional[int] = None,
+                       sort_by: Union[SortBy, None] = None, sort_order: Union[SortOrder, None] = None,
+                       query: Optional[str] = None, skip: int = 0, limit: int = 50):
     if sort_by is None and sort_order is None:
         sort_by = SortBy.time
         sort_order = SortOrder.desc
-    return get_items(item_type=ItemType.comment, ids=ids, by=by, before_time=before_time, after_time=after_time,
-                     sort_by=sort_by, sort_order=sort_order, query=query, skip=skip, limit=limit)
+    return await get_items(item_type=ItemType.comment, ids=ids, by=by, before_time=before_time, after_time=after_time,
+                           sort_by=sort_by, sort_order=sort_order, query=query, skip=skip, limit=limit)
 
 
 @app.get("/polls", response_model=List[PollResponse])
-def get_polls(ids: Optional[List[int]] = Query(None), by: Optional[str] = None,
-              before_time: Optional[int] = None, after_time: Optional[int] = None,
-              sort_by: Union[SortBy, None] = None, sort_order: Union[SortOrder, None] = None,
-              query: Optional[str] = None, skip: int = 0, limit: int = 10):
+async def get_polls(ids: Optional[List[int]] = Query(None), by: Optional[str] = None,
+                    before_time: Optional[int] = None, after_time: Optional[int] = None,
+                    sort_by: Union[SortBy, None] = None, sort_order: Union[SortOrder, None] = None,
+                    query: Optional[str] = None, skip: int = 0, limit: int = 10):
     if sort_by is None and sort_order is None:
         sort_by = SortBy.score
         sort_order = SortOrder.desc
-    items = get_items(item_type=ItemType.poll, ids=ids, by=by, before_time=before_time, after_time=after_time,
-                      sort_by=sort_by, sort_order=sort_order, query=query, skip=skip, limit=limit)
+    items = await get_items(item_type=ItemType.poll, ids=ids, by=by, before_time=before_time, after_time=after_time,
+                            sort_by=sort_by, sort_order=sort_order, query=query, skip=skip, limit=limit)
     if len(items) == 0:
         return []
 
@@ -247,15 +251,23 @@ async def main():
     # Initialize embedder model for reuse
     encoder = embedder.Embedder()
     encoder_task = asyncio.create_task(encoder._process_requests())
-    doc_encoder = embedder.DocumentEmbedder(DB_PATH, encoder)
 
     # Catch up on all data updates
     # Disable embedder task for now
+    # doc_encoder = embedder.DocumentEmbedder(DB_PATH, encoder)
     # updates, embedder_task = await dbsync.run(DB_PATH, doc_encoder)
-    updates = await dbsync.run(DB_PATH, doc_encoder)
+    updates = await dbsync.run(DB_PATH, None)
 
     # Catch up on document embeddings, offset = go back 100 stories and refresh
-    await doc_encoder.process_catchup_stories(100)
+    # await doc_encoder.process_catchup_stories(100)
+
+    # Load vector search
+    global search_index
+    prefix = os.path.splitext(DB_PATH)[0]
+    search_index = vectors.Index(encoder, f"{prefix}_embeddings.db")
+
+    # Warmup query
+    await search_index.embed_query("test")
 
     # Start API server
     server = uvicorn.Server(uvicorn.Config(

@@ -8,3 +8,5 @@ tqdm
 torch
 sentence_transformers
 InstructorEmbedding
+faiss-cpu
+psutil

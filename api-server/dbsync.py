@@ -50,7 +50,12 @@ def insert_items(items):
     for item in items:
         if not item:
             continue
-        parts = ",".join(item["parts"]) if item.get("parts") else None
+        parts = None
+        if item.get("parts"):
+            if isinstance(item["parts"], list):
+                parts = ",".join(str(i) for i in item["parts"])
+            else:
+                parts = str(item["parts"])
 
         cursor.execute("""
         INSERT OR REPLACE INTO items (id, deleted, type, by, time, text, dead, parent, poll, url, score, title, parts, descendants)

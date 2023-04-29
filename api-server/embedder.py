@@ -14,32 +14,23 @@ class Embedder:
     def __init__(self, model_name='hkunlp/instructor-large', max_seq_length=1024):
         self.model = INSTRUCTOR(model_name)
         self.model.max_seq_length = max_seq_length
-        self.high_priority_queue = asyncio.Queue()
-        self.low_priority_queue = asyncio.Queue()
+        self.request_queue = asyncio.Queue()
         self._stop_event = asyncio.Event()
 
-    async def encode(self, text_pairs, priority=False):
+    async def encode(self, text_pairs):
         result_queue = asyncio.Queue()
-        if priority:
-            await self.high_priority_queue.put((text_pairs, result_queue))
-        else:
-            await self.low_priority_queue.put((text_pairs, result_queue))
+        await self.request_queue.put((text_pairs, result_queue))
         return await result_queue.get()
 
     async def _process_requests(self):
         while not self._stop_event.is_set():
-            if not self.high_priority_queue.empty():
-                text_pairs, result_queue = await self.high_priority_queue.get()
-            else:
-                text_pairs, result_queue = await self.low_priority_queue.get()
-
+            text_pairs, result_queue = await self.request_queue.get()
             embeddings = self.model.encode(text_pairs)
             await result_queue.put(embeddings)
 
     async def shutdown(self):
         self._stop_event.set()
-        await self.high_priority_queue.join()
-        await self.low_priority_queue.join()
+        await self.request_queue.join()
 
 
 class DocumentEmbedder:
@@ -50,8 +41,7 @@ class DocumentEmbedder:
 
     def __init__(self, db_path, model):
         self.model = model
-        self.conn = sqlite3.connect(
-            f"file:{db_path}?mode=ro", uri=True)
+        self.conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
         self.conn.row_factory = sqlite3.Row
 
         prefix = os.path.splitext(db_path)[0]
