@@ -250,7 +250,9 @@ async def main():
     doc_encoder = embedder.DocumentEmbedder(DB_PATH, encoder)
 
     # Catch up on all data updates
-    updates, embedder_task = await dbsync.run(DB_PATH, doc_encoder)
+    # Disable embedder task for now
+    # updates, embedder_task = await dbsync.run(DB_PATH, doc_encoder)
+    updates = await dbsync.run(DB_PATH)
 
     # Catch up on document embeddings, offset = go back 100 stories and refresh
     await doc_encoder.process_catchup_stories(100)
@@ -262,7 +264,7 @@ async def main():
 
     # If any task aborts, cancel the others and abort program
     _, pending = await asyncio.wait(
-        {updates, embedder_task, encoder_task, uvicorn_task}, return_when=asyncio.FIRST_COMPLETED
+        {updates, encoder_task, uvicorn_task}, return_when=asyncio.FIRST_COMPLETED
     )
     for task in pending:
         task.cancel()

@@ -198,11 +198,11 @@ async def process_updates(updates_array, encoder):
     log_with_timestamp(
         f"Updated {len(items)} items and {len(profiles)} profiles.")
 
-    global affected_stories
-    affected = extract_affected_stories(items)
-    log_with_timestamp(
-        f"Updates impacted {len(affected)} stories, adding to set.")
-    affected_stories.update(affected)
+    # global affected_stories
+    # affected = extract_affected_stories(items)
+    # log_with_timestamp(
+    #     f"Updates impacted {len(affected)} stories, adding to set.")
+    # affected_stories.update(affected)
 
 
 async def watch_updates(encoder):
@@ -243,7 +243,7 @@ async def run(db_path, encoder):
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     updates = asyncio.create_task(watch_updates(encoder))
-    embedding_task = asyncio.create_task(process_affected_stories(encoder))
+    # embedding_task = asyncio.create_task(process_affected_stories(encoder))
 
     async with aiohttp.ClientSession() as session:
         # Fetch max item ID from Firebase and SQLite.
@@ -259,4 +259,4 @@ async def run(db_path, encoder):
             f"Finished initial fetch, now inserting updates (buffered {len(buffer)}).")
         initial_fetch_completed = True
 
-    return updates, embedding_task
+    return updates
