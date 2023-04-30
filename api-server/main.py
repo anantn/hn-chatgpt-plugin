@@ -1,30 +1,35 @@
 import os
 import copy
-import time
 import dbsync
 import uvicorn
 import asyncio
-
-import vectors
-import embedder
 
 from fastapi import Query, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import FileResponse
 
-from sqlalchemy import select, create_engine, or_
-from sqlalchemy.orm import sessionmaker, scoped_session, noload
+from sqlalchemy import select, create_engine
+from sqlalchemy.orm import sessionmaker, scoped_session
 from typing import List, Optional, Union
+
+import utils
+import vectors
+import embedder
 from schema import *
 
 # Database connection
+OPTS = os.environ.get("OPTS")
 DB_PATH = os.path.expanduser(os.environ.get("DB_PATH"))
 if not DB_PATH:
     print("Please set the DB_PATH environment variable to the path of the SQLite database.")
     exit()
 
+debug_sql = False
+if OPTS and "debug" in OPTS:
+    debug_sql = True
+
 engine = create_engine(
-    f"sqlite:///{DB_PATH}?mode=ro", connect_args={"check_same_thread": False})
+    f"sqlite:///{DB_PATH}?mode=ro", connect_args={"check_same_thread": False}, echo=debug_sql)
 session_factory = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 scoped_session = scoped_session(session_factory)
 Base.metadata.create_all(bind=engine)
@@ -52,55 +57,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Helper method
-
-
-def get_items(item_type: Optional[ItemType] = None,
-              by: Optional[str] = None, before_time: Optional[int] = None, after_time: Optional[int] = None,
-              min_score: Optional[int] = None, max_score: Optional[int] = None,
-              min_comments: Optional[int] = None, max_comments: Optional[int] = None,
-              sort_by: Union[SortBy, None] = None, sort_order: Union[SortOrder, None] = None,
-              skip: int = 0, limit: int = 10, query: Optional[str] = None):
-    if limit > 100:
-        limit = 100
-
-    session = scoped_session()
-    if item_type is not None:
-        item_type = item_type.value
-    items_query = session.query(Item).filter(Item.type == item_type)
-    items_query = items_query.options(noload(Item.kids))
-
-    # Filtering
-    if by is not None:
-        items_query = items_query.filter(Item.by == by)
-    if before_time is not None:
-        items_query = items_query.filter(Item.time <= before_time)
-    if after_time is not None:
-        items_query = items_query.filter(Item.time >= after_time)
-    if min_score is not None:
-        items_query = items_query.filter(Item.score >= min_score)
-    if max_score is not None:
-        items_query = items_query.filter(Item.score <= max_score)
-    if min_comments is not None:
-        items_query = items_query.filter(Item.descendants >= min_comments)
-    if max_comments is not None:
-        items_query = items_query.filter(Item.descendants <= max_comments)
-    if query is not None:
-        items_query = items_query.filter(
-            or_(Item.title.contains(query), Item.text.contains(query)))
-
-    # Sorting
-    if sort_by is not None:
-        sort_column = getattr(Item, sort_by.value)
-        if sort_order == SortOrder.asc:
-            items_query = items_query.order_by(sort_column.asc())
-        elif sort_order == SortOrder.desc:
-            items_query = items_query.order_by(sort_column.desc())
-
-    # Limit & skip
-    items_query = items_query.offset(skip).limit(limit)
-    # print(items_query)
-    return items_query.all()
 
 # API endpoints
 
@@ -129,51 +85,11 @@ def get_image():
 async def search_stories(query: str, limit: int = 1, exclude_comments: bool = False):
     if limit > 5:
         if exclude_comments:
-            if limit > 10:
-                limit = 10
+            if limit > 20:
+                limit = 20
         else:
             limit = 5
-
-    # Perform semantic search
-    start = time.time()
-    results = await search_index.search(query)
-    stop = time.time()
-    print(f"Search took {stop - start:.2f} seconds - {len(results)} results")
-    results = results[:limit]
-
-    # Fetch stories, their top 10 kid comments, and first child comment of each from the database
-    cursor = dbsync.conn.cursor()
-    stories = []
-    ranking = []
-    for (story_id, distance) in results:
-        cursor.execute(f"SELECT * FROM items WHERE id = {story_id}")
-        story_row = cursor.fetchone()
-        if story_row:
-            story = Item(**dict(story_row))
-            if not exclude_comments:
-                story.comment_text = []
-                cursor.execute(f"""SELECT i.* FROM items i
-                                JOIN kids k ON i.id = k.kid
-                                WHERE k.item = {story_id} AND i.type = 'comment'
-                                ORDER BY k.display_order
-                                LIMIT 10""")
-                comments = [Item(**dict(row)) for row in cursor.fetchall()]
-                for comment in comments:
-                    if comment.text:
-                        story.comment_text.append(comment.text)
-                        cursor.execute(f"""SELECT i.* FROM items i
-                                        JOIN kids k ON i.id = k.kid
-                                        WHERE k.item = {comment.id} AND i.type = 'comment'
-                                        ORDER BY k.display_order
-                                        LIMIT 1""")
-                        child_row = cursor.fetchone()
-                        if child_row:
-                            child_comment = Item(**dict(child_row))
-                            if child_comment.text:
-                                story.comment_text.append(child_comment.text)
-            stories.append(story)
-    cursor.close()
-    return stories
+    return await utils.semantic_search(search_index, query, limit, exclude_comments)
 
 
 @app.get("/story", response_model=StoryResponse)
@@ -196,9 +112,10 @@ def get_stories(by: Optional[str] = Query(None),
     if sort_by is None and sort_order is None:
         sort_by = SortBy.score
         sort_order = SortOrder.desc
-    return get_items(item_type=ItemType.story, by=by, before_time=before_time, after_time=after_time,
-                     min_score=min_score, max_score=max_score, min_comments=min_comments, max_comments=max_comments,
-                     sort_by=sort_by, sort_order=sort_order, skip=skip, limit=limit)
+    session = scoped_session()
+    return utils.get_items(session, item_type=ItemType.story, by=by, before_time=before_time, after_time=after_time,
+                           min_score=min_score, max_score=max_score, min_comments=min_comments, max_comments=max_comments,
+                           sort_by=sort_by, sort_order=sort_order, skip=skip, limit=limit)
 
 
 @app.get("/comment", response_model=CommentResponse)
@@ -219,8 +136,9 @@ def get_comments(by: Optional[str] = Query(None),
     if sort_by is None and sort_order is None:
         sort_by = SortBy.time
         sort_order = SortOrder.desc
-    return get_items(item_type=ItemType.comment, by=by, before_time=before_time, after_time=after_time,
-                     sort_by=sort_by, sort_order=sort_order, skip=skip, limit=limit)
+    session = scoped_session()
+    return utils.get_items(session, item_type=ItemType.comment, by=by, before_time=before_time, after_time=after_time,
+                           sort_by=sort_by, sort_order=sort_order, skip=skip, limit=limit)
 
 
 @app.get("/polls", response_model=List[PollResponse])
@@ -231,8 +149,9 @@ def get_polls(by: Optional[str] = Query(None),
     if sort_by is None and sort_order is None:
         sort_by = SortBy.score
         sort_order = SortOrder.desc
-    items = get_items(item_type=ItemType.poll, by=by, before_time=before_time, after_time=after_time,
-                      sort_by=sort_by, sort_order=sort_order, skip=skip, limit=limit, query=query)
+    session = scoped_session()
+    items = utils.get_items(session, item_type=ItemType.poll, by=by, before_time=before_time, after_time=after_time,
+                            sort_by=sort_by, sort_order=sort_order, skip=skip, limit=limit, query=query)
     if len(items) == 0:
         return []
 
@@ -303,15 +222,23 @@ async def main():
     encoder = embedder.Embedder()
     encoder_task = asyncio.create_task(encoder._process_requests())
 
+    catchup_stories = True
+    catchup_embeddings = True
+    if OPTS and "noupdate" in OPTS:
+        catchup_stories = False
+    if OPTS and "noembed" in OPTS:
+        catchup_embeddings = False
+
     # Catch up on all data updates
-    # Disable embedder task for now
     global doc_encoder
     doc_encoder = embedder.DocumentEmbedder(DB_PATH, encoder)
+    # Disable realtime embedder task for now (runs through cron)
     # updates, embedder_task = await dbsync.run(DB_PATH, doc_encoder)
-    updates = await dbsync.run(DB_PATH, None)
+    updates = await dbsync.run(DB_PATH, catchup_stories, None)
 
     # Catch up on document embeddings, offset = go back 1000 stories and refresh
-    await doc_encoder.process_catchup_stories(1000)
+    if catchup_embeddings:
+        await doc_encoder.process_catchup_stories(1000)
 
     # Load vector search
     global search_index

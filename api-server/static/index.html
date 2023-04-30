@@ -102,12 +102,12 @@
             const query = document.getElementById("search-input").value;
             if (query) {
                 // Show the spinner
+                const resultsDiv = document.getElementById("results");
+                resultsDiv.innerHTML = '';
                 document.getElementById("spinner").style.display = "inline-block";
 
                 const response = await fetch(`/search?query=${query}&limit=10&exclude_comments=true`);
                 const data = await response.json();
-                const resultsDiv = document.getElementById("results");
-                resultsDiv.innerHTML = '';
                 displayResults(data);
 
                 // Hide the spinner

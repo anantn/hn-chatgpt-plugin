@@ -243,7 +243,7 @@ def shutdown():
     log_with_timestamp("Shutting down SSE channel...")
 
 
-async def run(db_path, encoder):
+async def run(db_path, catchup, encoder):
     global conn, initial_fetch_completed
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
@@ -252,16 +252,17 @@ async def run(db_path, encoder):
 
     async with aiohttp.ClientSession() as session:
         # Fetch max item ID from Firebase and SQLite.
-        log_with_timestamp("Fetching max item ID for catching up...")
-        max_item_id = get_max_item_id()
-        max_item_id_from_db = get_max_item_id_from_db()
-        start_id = max(max_item_id_from_db - OFFSET, 1)
+        if catchup:
+            log_with_timestamp("Fetching max item ID for catching up...")
+            max_item_id = get_max_item_id()
+            max_item_id_from_db = get_max_item_id_from_db()
+            start_id = max(max_item_id_from_db - OFFSET, 1)
 
-        log_with_timestamp(
-            f"Fetching items from ID {start_id} to {max_item_id}")
-        await fetch_and_insert_items(session, start_id, max_item_id)
-        log_with_timestamp(
-            f"Finished initial fetch, now inserting updates (buffered {len(buffer)}).")
+            log_with_timestamp(
+                f"Fetching items from ID {start_id} to {max_item_id}")
+            await fetch_and_insert_items(session, start_id, max_item_id)
+            log_with_timestamp(
+                f"Finished initial fetch, now inserting updates (buffered {len(buffer)}).")
         initial_fetch_completed = True
 
     return updates
