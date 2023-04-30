@@ -15,6 +15,7 @@ conn = None
 
 # Create an asyncio event to signal when the initial fetch is complete
 initial_fetch_complete_event = asyncio.Event()
+embed_realtime = False
 
 
 def log_with_timestamp(*args):
@@ -164,13 +165,12 @@ def extract_affected_stories(item_ids):
 async def process_affected_stories(encoder):
     global affected_stories
     while not disconnect:
-        if len(affected_stories) > 0:
+        if len(affected_stories) > 0 and embed_realtime:
             to_process = copy.copy(affected_stories)
             affected_stories.clear()
             log_with_timestamp(
-                f"Processing affected stories: {len(to_process)}")
+                f"Processing affected stories for realtime embed: {len(to_process)}")
             await encoder.process_stories(to_process)
-            log_with_timestamp("Affected stories queue cleared.")
         await asyncio.sleep(600)
 
 
@@ -200,13 +200,8 @@ async def process_updates(updates_array, encoder):
             fetched_profiles = await asyncio.gather(*[fetch_user(session, profile_id) for profile_id in chunk])
             insert_users(fetched_profiles)
 
-    # log_with_timestamp(
-    #    f"Updated {len(items)} items and {len(profiles)} profiles.")
-    # global affected_stories
-    # affected = extract_affected_stories(items)
-    # log_with_timestamp(
-    #     f"Updates impacted {len(affected)} stories, adding to set.")
-    # affected_stories.update(affected)
+    global affected_stories
+    affected_stories.update(extract_affected_stories(items))
 
 
 async def watch_updates(encoder):
@@ -252,7 +247,6 @@ async def run(db_path, catchup, encoder):
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     updates = asyncio.create_task(watch_updates(encoder))
-    # embedding_task = asyncio.create_task(process_affected_stories(encoder))
 
     async with aiohttp.ClientSession() as session:
         # Fetch max item ID from Firebase and SQLite.
@@ -269,4 +263,5 @@ async def run(db_path, catchup, encoder):
                 f"Finished initial fetch, now inserting updates (buffered {len(buffer)}).")
         initial_fetch_completed = True
 
-    return updates
+    embedding_task = asyncio.create_task(process_affected_stories(encoder))
+    return updates, embedding_task

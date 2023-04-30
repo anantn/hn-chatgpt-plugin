@@ -73,7 +73,8 @@ async def semantic_search(search_index, query, limit, exclude_comments):
     start = time.time()
     results = compute_rankings(cursor, query, results)
     rank_time = time.time() - start
-    print(f"'{query}': search({search_time:.3f}) rank({rank_time:.3f}) num({len(results)} -> {limit})")
+    print(
+        f"search({search_time:.3f}) rank({rank_time:.3f}) num({len(results)} -> {limit}): '{query}'")
     results = results[:limit]
 
     # Fetch stories and their comments
@@ -105,7 +106,12 @@ def compute_rankings(cursor, query, results):
     for (story_id, distance) in results:
         cursor.execute(
             "SELECT title, score, time FROM items WHERE id = ?", (story_id,))
-        expanded.append((story_id, distance, *cursor.fetchone()))
+        title, score, age = cursor.fetchone()
+        if title is None:
+            continue
+        score = 1 if score is None else score
+        age = 0 if age is None else age
+        expanded.append((story_id, distance, title, score, age))
 
     scores, ages, distances = zip(
         *[(score, age, distance) for _, distance, _, score, age in expanded])
@@ -116,7 +122,7 @@ def compute_rankings(cursor, query, results):
     w1, w2, w3, w4 = 0.4, 0.4, 0.1, 0.1
 
     rankings = []
-    for i, (story_id, distance, title, score, age) in enumerate(expanded):
+    for i, (story_id, distance, title, _, _) in enumerate(expanded):
         query_words = set(word.lower() for word in query.split())
         title_words = set(word.lower() for word in title.split())
         matches = len(query_words.intersection(title_words))

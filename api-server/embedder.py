@@ -15,22 +15,51 @@ class Embedder:
         self.model = INSTRUCTOR(model_name)
         self.model.max_seq_length = max_seq_length
         self.request_queue = asyncio.Queue()
+        self.priority_request_queue = asyncio.Queue()
         self._stop_event = asyncio.Event()
+        self.processing_task = asyncio.create_task(self._process_requests())
 
-    async def encode(self, text_pairs):
+    async def encode(self, text_pairs, high_priority=False):
         result_queue = asyncio.Queue()
-        await self.request_queue.put((text_pairs, result_queue))
+        if high_priority:
+            await self.priority_request_queue.put((text_pairs, result_queue))
+        else:
+            await self.request_queue.put((text_pairs, result_queue))
         return await result_queue.get()
 
     async def _process_requests(self):
         while not self._stop_event.is_set():
-            text_pairs, result_queue = await self.request_queue.get()
-            embeddings = self.model.encode(text_pairs)
-            await result_queue.put(embeddings)
+            # Prepare tasks to wait for items in both priority and regular queues
+            priority_task = asyncio.ensure_future(
+                self.priority_request_queue.get())
+            regular_task = asyncio.ensure_future(self.request_queue.get())
+
+            done, pending = await asyncio.wait(
+                [priority_task, regular_task],
+                return_when=asyncio.FIRST_COMPLETED
+            )
+
+            # Cancel any pending tasks
+            for task in pending:
+                task.cancel()
+
+            # Process the completed task, giving priority to the priority_request_queue
+            if priority_task in done:
+                text_pairs, result_queue = priority_task.result()
+            elif regular_task in done:
+                text_pairs, result_queue = regular_task.result()
+
+            if text_pairs is not None:
+                embeddings = self.model.encode(text_pairs)
+                await result_queue.put(embeddings)
 
     async def shutdown(self):
         self._stop_event.set()
-        await self.request_queue.join()
+        self.processing_task.cancel()
+        try:
+            await self.processing_task
+        except asyncio.CancelledError:
+            pass
 
 
 class DocumentEmbedder:
@@ -96,14 +125,14 @@ class DocumentEmbedder:
         if last_processed_story:
             print("Found last processed story: ", last_processed_story)
             if offset != 0:
-                print(f"Finding story with the right offset: {offset}")
                 cursor = self.conn.cursor()
                 cursor.execute('''SELECT id FROM (
         SELECT id FROM items WHERE id < ? AND type='story' ORDER BY id DESC
         ) AS subquery LIMIT 1 OFFSET ?;''', (last_processed_story, offset-1))
                 last_processed_story = cursor.fetchone()[0]
                 cursor.close()
-            print(f"Resuming from story {last_processed_story}")
+            print(
+                f"Resuming from story {last_processed_story} (after offset: {offset}))")
             constraint += f" AND id > {last_processed_story}"
         await self.process_stories_with_constraint(constraint)
 
@@ -163,7 +192,7 @@ class DocumentEmbedder:
 
     def story_generator(self, constraint):
         cursor = self.conn.cursor()
-        cursor.execute(f"SELECT * {constraint}")
+        cursor.execute(f"SELECT id, title, text, parent {constraint}")
 
         for row in cursor:
             story = dict(row)
@@ -183,7 +212,7 @@ class DocumentEmbedder:
         cursor = self.conn.cursor()
         cursor.execute(
             """
-            SELECT *
+            SELECT id, title, text, parent
             FROM items
             WHERE type = 'comment' AND parent = ? AND text IS NOT NULL
             """,
@@ -216,6 +245,10 @@ class DocumentEmbedder:
         return text
 
     def story_header(self, story):
+        if story["title"] is None or story["title"] == "":
+            if story["text"] is None or story["text"] == "":
+                return None
+
         header = f'Topic: {self.clean_text(story["title"])}\n'
         # submitted by {clean_text(story["by"])} on {format_date(story["time"])}\n
         if story["text"]:
@@ -231,6 +264,8 @@ class DocumentEmbedder:
             comments_by_parent[comment["parent"]].append(comment)
 
         current_document = self.story_header(story)
+        if current_document is None:
+            return []
 
         # Iterate through top-level comments and their children
         stack = [(0, comment) for comment in comments_by_parent[story["id"]]]

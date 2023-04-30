@@ -9,6 +9,7 @@ import psutil
 TOP_K = 50
 NLIST = 100
 NPROBE = 35
+EMBEDDING_DIM = 768
 INSTRUCTION = 'Represent the question for retrieving supporting forum discussions: '
 
 
@@ -18,7 +19,9 @@ class Index:
         self.start_time = time.time()
 
         self.print_memory_usage("before loading embeddings")
-        embeddings, item_ids = self.load_embeddings(embeddings_db_path)
+        self.embeddings_conn = sqlite3.connect(
+            f"file:{embeddings_db_path}?mode=ro", uri=True)
+        embeddings, item_ids = self.load_embeddings()
 
         self.print_memory_usage("before flat_index")
         index = self.create_ivf_flat_index(embeddings)
@@ -31,6 +34,9 @@ class Index:
         embeddings = None
         gc.collect()
         self.print_memory_usage("vector index ready!")
+
+    def shutdown(self):
+        self.embeddings_conn.close()
 
     async def search(self, query, top_k=TOP_K):
         query_embedding = await self.embed_query(query)
@@ -45,35 +51,37 @@ class Index:
         return unique_story_ids
 
     async def embed_query(self, query):
-        value = await self.encoder.encode([[INSTRUCTION, query]])
+        value = await self.encoder.encode([[INSTRUCTION, query]], high_priority=True)
         return value[0]
 
-    def load_embeddings(self, embeddings_db_path):
-        embeddings_conn = sqlite3.connect(
-            f"file:{embeddings_db_path}?mode=ro", uri=True)
-        cursor = embeddings_conn.cursor()
+    def update_embeddings(self, story_ids):
+        for story_id in story_ids:
+            self.index_with_ids.remove_ids(
+                np.array([story_id], dtype=np.int64))
+            new_embeddings, new_item_ids = self.load_embeddings(
+                f"WHERE story = {story_id}")
+            self.index_with_ids.add_with_ids(new_embeddings, new_item_ids)
+
+    def load_embeddings(self, constraint=""):
+        cursor = self.embeddings_conn.cursor()
 
         # Fetch the total number of embeddings
-        cursor.execute("SELECT COUNT(*) FROM embeddings")
+        cursor.execute(f"SELECT COUNT(*) FROM embeddings {constraint}")
         num_embeddings = cursor.fetchone()[0]
 
-        # Fetch the dimension of embeddings
-        cursor.execute(
-            "SELECT LENGTH(embedding) / 4 as dim FROM embeddings LIMIT 1")
-        dim = cursor.fetchone()[0]
-
         # Create an empty numpy array to hold the embeddings and item IDs
-        embeddings = np.empty((num_embeddings, dim), dtype=np.float32)
+        embeddings = np.empty(
+            (num_embeddings, EMBEDDING_DIM), dtype=np.float32)
         item_ids = np.empty(num_embeddings, dtype=np.int64)
 
         # Fetch all embeddings and their story/item IDs from the database and fill the numpy arrays
-        cursor.execute("SELECT story, embedding FROM embeddings ORDER BY id")
+        cursor.execute(
+            f"SELECT story, embedding FROM embeddings {constraint} ORDER BY id")
         for i, (story_id, embedding) in enumerate(cursor.fetchall()):
             item_ids[i] = story_id
             embeddings[i] = np.frombuffer(embedding, dtype=np.float32)
 
         cursor.close()
-        embeddings_conn.close()
         return embeddings, item_ids
 
     def create_ivf_flat_index(self, embeddings):

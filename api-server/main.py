@@ -220,7 +220,8 @@ def get_users(before_created: Optional[int] = None, after_created: Optional[int]
 async def main():
     # Initialize embedder model for reuse
     encoder = embedder.Embedder()
-    encoder_task = asyncio.create_task(encoder._process_requests())
+    # Warmup with a query to fully load the model
+    await encoder.encode([["test", "query"]])
 
     catchup_stories = True
     catchup_embeddings = True
@@ -232,21 +233,17 @@ async def main():
     # Catch up on all data updates
     global doc_encoder
     doc_encoder = embedder.DocumentEmbedder(DB_PATH, encoder)
-    # Disable realtime embedder task for now (runs through cron)
-    # updates, embedder_task = await dbsync.run(DB_PATH, doc_encoder)
-    updates = await dbsync.run(DB_PATH, catchup_stories, None)
+    updates, embedder_task = await dbsync.run(DB_PATH, catchup_stories, doc_encoder)
 
     # Catch up on document embeddings, offset = go back 1000 stories and refresh
     if catchup_embeddings:
         await doc_encoder.process_catchup_stories(1000)
+    dbsync.embed_realtime = True
 
     # Load vector search
     global search_index
     prefix = os.path.splitext(DB_PATH)[0]
     search_index = vectors.Index(encoder, f"{prefix}_embeddings.db")
-
-    # Warmup query
-    await search_index.embed_query("test")
 
     # Start API server
     server = uvicorn.Server(uvicorn.Config(
@@ -255,12 +252,13 @@ async def main():
 
     # If any task aborts, cancel the others and abort program
     _, pending = await asyncio.wait(
-        {updates, encoder_task, uvicorn_task}, return_when=asyncio.FIRST_COMPLETED
+        {updates, embedder_task, uvicorn_task}, return_when=asyncio.FIRST_COMPLETED
     )
     for task in pending:
         task.cancel()
 
     dbsync.shutdown()
+    await encoder.shutdown()
     print("Exiting...")
 
 if __name__ == "__main__":
