@@ -83,6 +83,9 @@ class DocumentEmbedder:
             embeddings.add(embedding[0])
         embeddings_cursor.close()
 
+        # Fetch the last processed story
+        last_processed_story = self.fetch_last_processed_story()
+
         # Return the difference between the two lists
         missing = items-embeddings
         if len(missing) > 0:
@@ -90,8 +93,6 @@ class DocumentEmbedder:
                 f"Found {len(missing)} missing stories, resetting last_processed_story ({last_processed_story})")
             last_processed_story = min(missing)
 
-        # Fetch the last processed story
-        last_processed_story = self.fetch_last_processed_story()
         if last_processed_story:
             print("Found last processed story: ", last_processed_story)
             if offset != 0:
