@@ -8,7 +8,7 @@ import psutil
 
 TOP_K = 50
 NLIST = 100
-NPROBE = 20
+NPROBE = 35
 INSTRUCTION = 'Represent the question for retrieving supporting forum discussions: '
 
 
@@ -34,14 +34,14 @@ class Index:
 
     async def search(self, query, top_k=TOP_K):
         query_embedding = await self.embed_query(query)
-        _, I = self.index_with_ids.search(np.array([query_embedding]), top_k)
+        D, I = self.index_with_ids.search(np.array([query_embedding]), top_k)
 
         unique_story_ids = []
         seen_ids = set()
-        for story_id in I[0]:
+        for story_id, distance in zip(I[0], D[0]):
             if story_id not in seen_ids:
                 seen_ids.add(story_id)
-                unique_story_ids.append(story_id.item())
+                unique_story_ids.append((story_id.item(), distance.item()))
         return unique_story_ids
 
     async def embed_query(self, query):

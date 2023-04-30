@@ -11,6 +11,7 @@ from InstructorEmbedding import INSTRUCTOR
 TOP_K = 50
 TOP_N = 10
 NLIST = 100
+NPROBE = 35
 start_time = time.time()
 
 
@@ -87,7 +88,7 @@ def main():
     # Create a FAISS index and add the embeddings
     index = create_ivf_flat_index(embeddings)
     index.train(embeddings)
-    index.nprobe = 20
+    index.nprobe = NPROBE
     print_memory_usage("after training")
     index_with_ids = faiss.IndexIDMap(index)
     index_with_ids.add_with_ids(embeddings, item_ids)

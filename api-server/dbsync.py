@@ -111,12 +111,12 @@ async def fetch_and_insert_items(session, start_id, end_id):
                 progress_bar.update(BATCH_SIZE)
                 break
             except aiohttp.client_exceptions.ClientConnectorError as e:
-                print(
+                log_with_timestamp(
                     f"Connection error: {e}, retrying in {retry_delay} seconds...")
                 await asyncio.sleep(retry_delay)
                 retry_count += 1
             except Exception as e:
-                print(f"Unexpected error: {e}")
+                log_with_timestamp(f"Unexpected error: {e}")
                 raise e
     progress_bar.close()
 
@@ -200,9 +200,8 @@ async def process_updates(updates_array, encoder):
             fetched_profiles = await asyncio.gather(*[fetch_user(session, profile_id) for profile_id in chunk])
             insert_users(fetched_profiles)
 
-    log_with_timestamp(
-        f"Updated {len(items)} items and {len(profiles)} profiles.")
-
+    # log_with_timestamp(
+    #    f"Updated {len(items)} items and {len(profiles)} profiles.")
     # global affected_stories
     # affected = extract_affected_stories(items)
     # log_with_timestamp(
@@ -227,7 +226,8 @@ async def watch_updates(encoder):
                         else:
                             log_with_timestamp(f"Buffer now at {len(buffer)}.")
         except aiohttp.client_exceptions.ClientConnectorError as e:
-            print(f"Connection error: {e}, retrying in 5 seconds...")
+            log_with_timestamp(
+                f"Connection error: {e}, retrying in 5 seconds...")
             await asyncio.sleep(5)
         except TimeoutError:
             log_with_timestamp(
@@ -252,7 +252,7 @@ async def run(db_path, encoder):
 
     async with aiohttp.ClientSession() as session:
         # Fetch max item ID from Firebase and SQLite.
-        print("Fetching max item ID for catching up...")
+        log_with_timestamp("Fetching max item ID for catching up...")
         max_item_id = get_max_item_id()
         max_item_id_from_db = get_max_item_id_from_db()
         start_id = max(max_item_id_from_db - OFFSET, 1)

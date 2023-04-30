@@ -55,12 +55,12 @@ app.add_middleware(
 # Helper method
 
 
-async def get_items(item_type: Optional[ItemType] = None,
-                    by: Optional[str] = None, before_time: Optional[int] = None, after_time: Optional[int] = None,
-                    min_score: Optional[int] = None, max_score: Optional[int] = None,
-                    min_comments: Optional[int] = None, max_comments: Optional[int] = None,
-                    sort_by: Union[SortBy, None] = None, sort_order: Union[SortOrder, None] = None,
-                    skip: int = 0, limit: int = 10, query: Optional[str] = None):
+def get_items(item_type: Optional[ItemType] = None,
+              by: Optional[str] = None, before_time: Optional[int] = None, after_time: Optional[int] = None,
+              min_score: Optional[int] = None, max_score: Optional[int] = None,
+              min_comments: Optional[int] = None, max_comments: Optional[int] = None,
+              sort_by: Union[SortBy, None] = None, sort_order: Union[SortOrder, None] = None,
+              skip: int = 0, limit: int = 10, query: Optional[str] = None):
     if limit > 100:
         limit = 100
 
@@ -186,18 +186,18 @@ def get_story(id: int = Query(1)):
 
 
 @app.get("/stories", response_model=List[StoryResponse])
-async def get_stories(by: Optional[str] = Query(None),
-                      before_time: Optional[int] = None, after_time: Optional[int] = None,
-                      min_score: Optional[int] = None, max_score: Optional[int] = None,
-                      min_comments: Optional[int] = None, max_comments: Optional[int] = None,
-                      sort_by: Union[SortBy, None] = None, sort_order: Union[SortOrder, None] = None,
-                      skip: int = 0, limit: int = 10):
+def get_stories(by: Optional[str] = Query(None),
+                before_time: Optional[int] = None, after_time: Optional[int] = None,
+                min_score: Optional[int] = None, max_score: Optional[int] = None,
+                min_comments: Optional[int] = None, max_comments: Optional[int] = None,
+                sort_by: Union[SortBy, None] = None, sort_order: Union[SortOrder, None] = None,
+                skip: int = 0, limit: int = 10):
     if sort_by is None and sort_order is None:
         sort_by = SortBy.score
         sort_order = SortOrder.desc
-    return await get_items(item_type=ItemType.story, by=by, before_time=before_time, after_time=after_time,
-                           min_score=min_score, max_score=max_score, min_comments=min_comments, max_comments=max_comments,
-                           sort_by=sort_by, sort_order=sort_order, skip=skip, limit=limit)
+    return get_items(item_type=ItemType.story, by=by, before_time=before_time, after_time=after_time,
+                     min_score=min_score, max_score=max_score, min_comments=min_comments, max_comments=max_comments,
+                     sort_by=sort_by, sort_order=sort_order, skip=skip, limit=limit)
 
 
 @app.get("/comment", response_model=CommentResponse)
@@ -211,27 +211,27 @@ def get_comment(id: int = Query(1)):
 
 
 @app.get("/comments", response_model=List[CommentResponse])
-async def get_comments(by: Optional[str] = Query(None),
-                       before_time: Optional[int] = None, after_time: Optional[int] = None,
-                       sort_by: Union[SortBy, None] = None, sort_order: Union[SortOrder, None] = None,
-                       skip: int = 0, limit: int = 50):
+def get_comments(by: Optional[str] = Query(None),
+                 before_time: Optional[int] = None, after_time: Optional[int] = None,
+                 sort_by: Union[SortBy, None] = None, sort_order: Union[SortOrder, None] = None,
+                 skip: int = 0, limit: int = 50):
     if sort_by is None and sort_order is None:
         sort_by = SortBy.time
         sort_order = SortOrder.desc
-    return await get_items(item_type=ItemType.comment, by=by, before_time=before_time, after_time=after_time,
-                           sort_by=sort_by, sort_order=sort_order, skip=skip, limit=limit)
+    return get_items(item_type=ItemType.comment, by=by, before_time=before_time, after_time=after_time,
+                     sort_by=sort_by, sort_order=sort_order, skip=skip, limit=limit)
 
 
 @app.get("/polls", response_model=List[PollResponse])
-async def get_polls(by: Optional[str] = Query(None),
-                    before_time: Optional[int] = None, after_time: Optional[int] = None,
-                    sort_by: Union[SortBy, None] = None, sort_order: Union[SortOrder, None] = None,
-                    skip: int = 0, limit: int = 10, query: Optional[str] = None):
+def get_polls(by: Optional[str] = Query(None),
+              before_time: Optional[int] = None, after_time: Optional[int] = None,
+              sort_by: Union[SortBy, None] = None, sort_order: Union[SortOrder, None] = None,
+              skip: int = 0, limit: int = 10, query: Optional[str] = None):
     if sort_by is None and sort_order is None:
         sort_by = SortBy.score
         sort_order = SortOrder.desc
-    items = await get_items(item_type=ItemType.poll, by=by, before_time=before_time, after_time=after_time,
-                            sort_by=sort_by, sort_order=sort_order, skip=skip, limit=limit, query=query)
+    items = get_items(item_type=ItemType.poll, by=by, before_time=before_time, after_time=after_time,
+                      sort_by=sort_by, sort_order=sort_order, skip=skip, limit=limit, query=query)
     if len(items) == 0:
         return []
 
@@ -309,8 +309,8 @@ async def main():
     # updates, embedder_task = await dbsync.run(DB_PATH, doc_encoder)
     updates = await dbsync.run(DB_PATH, None)
 
-    # Catch up on document embeddings, offset = go back 100 stories and refresh
-    # await doc_encoder.process_catchup_stories(100)
+    # Catch up on document embeddings, offset = go back 1000 stories and refresh
+    await doc_encoder.process_catchup_stories(1000)
 
     # Load vector search
     global search_index

@@ -106,6 +106,8 @@
 
                 const response = await fetch(`/search?query=${query}&limit=10&exclude_comments=true`);
                 const data = await response.json();
+                const resultsDiv = document.getElementById("results");
+                resultsDiv.innerHTML = '';
                 displayResults(data);
 
                 // Hide the spinner
@@ -116,8 +118,6 @@
 
         function displayResults(stories) {
             const resultsDiv = document.getElementById("results");
-            resultsDiv.innerHTML = '';
-
             for (const story of stories) {
                 const storyDiv = document.createElement("div");
                 storyDiv.className = "story";
