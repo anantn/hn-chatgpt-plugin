@@ -5,7 +5,6 @@ import uvicorn
 import asyncio
 
 from fastapi import Query, FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import FileResponse
 
 from sqlalchemy import select, create_engine
@@ -36,26 +35,7 @@ Base.metadata.create_all(bind=engine)
 search_index = None
 doc_encoder = None
 app = FastAPI()
-
-
-def set_schema():
-    if app.openapi_schema:
-        return app.openapi_schema
-    app.openapi_schema = get_schema(app)
-    return app.openapi_schema
-
-
-app.openapi = set_schema
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "http://localhost:8000",
-        "https://chat.openai.com",
-    ],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+app = utils.initialize_middleware(app)
 
 
 # API endpoints
@@ -93,7 +73,7 @@ async def search_stories(query: str, limit: int = 1, exclude_comments: bool = Fa
 
 
 @app.get("/story", response_model=StoryResponse)
-def get_story(id: int = Query(1)):
+async def get_story(id: int = Query(1)):
     session = scoped_session()
     story = session.query(Item).filter(
         Item.type == ItemType.story.value).filter(Item.id == id).first()
@@ -103,15 +83,12 @@ def get_story(id: int = Query(1)):
 
 
 @app.get("/stories", response_model=List[StoryResponse])
-def get_stories(by: Optional[str] = Query(None),
-                before_time: Optional[int] = None, after_time: Optional[int] = None,
-                min_score: Optional[int] = None, max_score: Optional[int] = None,
-                min_comments: Optional[int] = None, max_comments: Optional[int] = None,
-                sort_by: Union[SortBy, None] = None, sort_order: Union[SortOrder, None] = None,
-                skip: int = 0, limit: int = utils.DEFAULT_NUM):
-    if sort_by is None and sort_order is None:
-        sort_by = SortBy.score
-        sort_order = SortOrder.desc
+async def get_stories(by: Optional[str] = Query(None),
+                      before_time: Optional[int] = None, after_time: Optional[int] = None,
+                      min_score: Optional[int] = None, max_score: Optional[int] = None,
+                      min_comments: Optional[int] = None, max_comments: Optional[int] = None,
+                      sort_by: SortBy = SortBy.score, sort_order: SortOrder = SortOrder.desc,
+                      skip: int = 0, limit: int = utils.DEFAULT_NUM):
     session = scoped_session()
     return utils.get_items(session, item_type=ItemType.story, by=by, before_time=before_time, after_time=after_time,
                            min_score=min_score, max_score=max_score, min_comments=min_comments, max_comments=max_comments,
@@ -119,7 +96,7 @@ def get_stories(by: Optional[str] = Query(None),
 
 
 @app.get("/comment", response_model=CommentResponse)
-def get_comment(id: int = Query(1)):
+async def get_comment(id: int = Query(1)):
     session = scoped_session()
     comment = session.query(Item).filter(
         Item.type == ItemType.comment.value).filter(Item.id == id).first()
@@ -129,26 +106,20 @@ def get_comment(id: int = Query(1)):
 
 
 @app.get("/comments", response_model=List[CommentResponse])
-def get_comments(by: Optional[str] = Query(None),
-                 before_time: Optional[int] = None, after_time: Optional[int] = None,
-                 sort_by: Union[SortBy, None] = None, sort_order: Union[SortOrder, None] = None,
-                 skip: int = 0, limit: int = utils.DEFAULT_NUM):
-    if sort_by is None and sort_order is None:
-        sort_by = SortBy.time
-        sort_order = SortOrder.desc
+async def get_comments(by: Optional[str] = Query(None),
+                       before_time: Optional[int] = None, after_time: Optional[int] = None,
+                       sort_by: SortBy = SortBy.time, sort_order: SortOrder = SortOrder.desc,
+                       skip: int = 0, limit: int = utils.DEFAULT_NUM):
     session = scoped_session()
     return utils.get_items(session, item_type=ItemType.comment, by=by, before_time=before_time, after_time=after_time,
                            sort_by=sort_by, sort_order=sort_order, skip=skip, limit=limit)
 
 
 @app.get("/polls", response_model=List[PollResponse])
-def get_polls(by: Optional[str] = Query(None),
-              before_time: Optional[int] = None, after_time: Optional[int] = None,
-              sort_by: Union[SortBy, None] = None, sort_order: Union[SortOrder, None] = None,
-              skip: int = 0, limit: int = utils.DEFAULT_NUM, query: Optional[str] = None):
-    if sort_by is None and sort_order is None:
-        sort_by = SortBy.score
-        sort_order = SortOrder.desc
+async def get_polls(by: Optional[str] = Query(None),
+                    before_time: Optional[int] = None, after_time: Optional[int] = None,
+                    sort_by: SortBy = SortBy.score, sort_order: SortOrder = SortOrder.desc,
+                    skip: int = 0, limit: int = utils.DEFAULT_NUM, query: Optional[str] = None):
     session = scoped_session()
     items = utils.get_items(session, item_type=ItemType.poll, by=by, before_time=before_time, after_time=after_time,
                             sort_by=sort_by, sort_order=sort_order, skip=skip, limit=limit, query=query)
@@ -159,12 +130,16 @@ def get_polls(by: Optional[str] = Query(None),
     poll_responses = []
     for item in items:
         working_item = copy.copy(item)
-        item_parts = [int(part_id)
-                      for part_id in working_item.parts.split(",")]
-        working_item.parts = None
-        item_pollopts = session.query(Item).filter(
-            Item.id.in_(item_parts)).all()
-        parts = [ItemResponse.from_orm(pollopt) for pollopt in item_pollopts]
+        if working_item.parts is not None:
+            item_parts = [int(part_id)
+                          for part_id in working_item.parts.split(",")]
+            working_item.parts = None
+            item_pollopts = session.query(Item).filter(
+                Item.id.in_(item_parts)).all()
+            parts = [ItemResponse.from_orm(pollopt)
+                     for pollopt in item_pollopts]
+        else:
+            parts = []
         poll_response = PollResponse.from_orm(working_item)
         poll_response.parts = parts
         poll_responses.append(poll_response)
@@ -172,7 +147,7 @@ def get_polls(by: Optional[str] = Query(None),
 
 
 @app.get("/user", response_model=UserResponse)
-def get_user(id: str = Query("pg")):
+async def get_user(id: str = Query("pg")):
     session = scoped_session()
     user = session.query(User).filter(User.id == id).first()
     if user is None:
@@ -181,10 +156,10 @@ def get_user(id: str = Query("pg")):
 
 
 @app.get("/users", response_model=List[UserResponse])
-def get_users(before_created: Optional[int] = None, after_created: Optional[int] = None,
-              min_karma: Optional[int] = None, max_karma: Optional[int] = None,
-              sort_by: Union[UserSortBy, None] = None, sort_order: Union[SortOrder, None] = None,
-              skip: int = 0, limit: int = utils.DEFAULT_NUM):
+async def get_users(before_created: Optional[int] = None, after_created: Optional[int] = None,
+                    min_karma: Optional[int] = None, max_karma: Optional[int] = None,
+                    sort_by: UserSortBy = UserSortBy.karma, sort_order: SortOrder = SortOrder.desc,
+                    skip: int = 0, limit: int = utils.DEFAULT_NUM):
     if limit > utils.MAX_NUM:
         limit = utils.MAX_NUM
     session = scoped_session()
@@ -204,14 +179,11 @@ def get_users(before_created: Optional[int] = None, after_created: Optional[int]
         user_select = user_select.where(User.karma <= max_karma)
 
     # Sorting
-    if sort_by is None:
-        user_select = user_select.order_by(User.karma.desc())
-    else:
-        sort_column = getattr(User, sort_by.value)
-        if sort_order == SortOrder.asc:
-            user_select = user_select.order_by(sort_column.asc())
-        elif sort_order == SortOrder.desc:
-            user_select = user_select.order_by(sort_column.desc())
+    sort_column = getattr(User, sort_by.value)
+    if sort_order == SortOrder.asc:
+        user_select = user_select.order_by(sort_column.asc())
+    elif sort_order == SortOrder.desc:
+        user_select = user_select.order_by(sort_column.desc())
 
     user_select = user_select.offset(skip).limit(limit)
     return session.execute(user_select).fetchall()
@@ -258,7 +230,10 @@ async def main():
         task.cancel()
 
     dbsync.shutdown()
+    search_index.shutdown()
+    doc_encoder.shutdown()
     await encoder.shutdown()
+
     print("Exiting...")
 
 if __name__ == "__main__":

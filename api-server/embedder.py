@@ -87,6 +87,10 @@ class DocumentEmbedder:
             )
         """)
 
+    def shutdown(self):
+        self.conn.close()
+        self.embeddings_conn.close()
+
     async def process_stories(self, story_ids):
         story_ids_str = ', '.join(map(str, story_ids))
         constraint = f"FROM items WHERE type = 'story' AND id IN ({story_ids_str})"
@@ -143,11 +147,10 @@ class DocumentEmbedder:
         cursor.close()
         print(f"Found total eligible discussions: {total_stories}")
 
-        progress = tqdm(desc="parts processed")
-        doc_progress = tqdm(desc="documents processed", total=total_stories)
-
         story_iter = self.story_generator(constraint)
         story_batch = []
+        progress = tqdm(desc="parts processed")
+        doc_progress = tqdm(desc="documents processed", total=total_stories)
 
         for (story, comments) in story_iter:
             document_parts = self.create_documents(story, comments)

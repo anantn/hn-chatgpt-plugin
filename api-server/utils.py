@@ -1,8 +1,14 @@
 import time
+import asyncio
 
 from sqlalchemy import or_
 from sqlalchemy.orm import noload
 from typing import Optional, Union
+from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
+from starlette.responses import JSONResponse
+from starlette.concurrency import run_in_threadpool
 
 import dbsync
 from schema import *
@@ -11,6 +17,46 @@ from schema import *
 
 DEFAULT_NUM = 10
 MAX_NUM = 50
+TIMEOUT = 10  # seconds
+
+
+def initialize_middleware(app):
+    class TimeoutMiddleware(BaseHTTPMiddleware):
+        async def dispatch(self, request: Request, call_next):
+            async def call_next_with_request():
+                return await call_next(request)
+            task = asyncio.create_task(call_next_with_request())
+            try:
+                response = await asyncio.wait_for(task, timeout=10)
+            except asyncio.TimeoutError:
+                task.cancel()
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    pass
+                response = JSONResponse(status_code=408, content={
+                                        "detail": "Request timeout"})
+            return response
+
+    def set_schema():
+        if app.openapi_schema:
+            return app.openapi_schema
+        app.openapi_schema = get_schema(app)
+        return app.openapi_schema
+
+    app.openapi = set_schema
+    app.add_middleware(TimeoutMiddleware)
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=[
+            "http://localhost:8000",
+            "https://chat.openai.com",
+        ],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+    return app
 
 
 def get_items(session, item_type: Optional[ItemType] = None,

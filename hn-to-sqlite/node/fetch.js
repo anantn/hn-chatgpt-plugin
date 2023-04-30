@@ -93,6 +93,14 @@ function createTables(db) {
     // CREATE INDEX idx_kids_item_kid ON kids(item, kid);
     // CREATE INDEX idx_items_composite ON items(type, by, time, score, descendants);
     // CREATE INDEX idx_items_type_parent ON items(type, parent);
+    // CREATE INDEX idx_items_type_time ON items(type, time);
+    // CREATE INDEX idx_items_type_score ON items(type, score);
+    // CREATE INDEX idx_items_type_descendants ON items(type, descendants);
+    // CREATE INDEX idx_items_type_by_time ON items(type, by, time);
+    // CREATE INDEX idx_items_type_by_score ON items(type, by, score);
+    // CREATE INDEX idx_items_type_by_descendants ON items(type, by, descendants);
+    // CREATE INDEX idx_items_type_time_score ON items(type, time, score);
+    // CREATE INDEX idx_items_type_time_descendants ON items(type, time, descendants);
 }
 
 function usage() {
