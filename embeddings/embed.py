@@ -135,6 +135,29 @@ def fetch_last_processed_story(conn):
     return result[0] if result else None
 
 
+def missing_embeddings(conn, constraint, embeddings_conn):
+    # Fetch list of ids from conn (items) table
+    items_cursor = conn.cursor()
+    items_cursor.execute(f"SELECT id {constraint}")
+    items = set()
+    for item in items_cursor.fetchall():
+        items.add(item[0])
+    items_cursor.close()
+
+    # Then fetch list of ids from embeddings_conn (embeddings) table
+    embeddings_cursor = embeddings_conn.cursor()
+    embeddings_cursor.execute("SELECT DISTINCT story FROM embeddings")
+    embeddings = set()
+    for embedding in embeddings_cursor.fetchall():
+        embeddings.add(embedding[0])
+    embeddings_cursor.close()
+
+    # Return the difference between the two lists
+    print(
+        f"Expected number of stories: {len(items)}, actual: {len(embeddings)}")
+    return items - embeddings
+
+
 def main():
     if len(sys.argv) < 2:
         print("Usage: python embed.py <db_path> <optional: offset>")
@@ -169,6 +192,14 @@ def main():
 
     # Fetch the last processed story
     last_processed_story = fetch_last_processed_story(embeddings_conn)
+
+    # Let's diff the counts from both tables
+    missing = missing_embeddings(conn, constraint, embeddings_conn)
+    if len(missing) > 0:
+        print(
+            f"Found {len(missing)} missing stories, resetting last_processed_story ({last_processed_story})")
+        last_processed_story = min(missing)
+
     if last_processed_story:
         print("Found last processed story: ", last_processed_story)
         if offset != 0:

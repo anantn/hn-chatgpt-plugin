@@ -67,6 +67,29 @@ class DocumentEmbedder:
         # Fetch all interesting stories
         constraint = "FROM items WHERE type = 'story' AND score >= 20 AND descendants >= 3"
 
+        # Fetch list of ids from conn (items) table
+        items_cursor = self.conn.cursor()
+        items_cursor.execute(f"SELECT id {constraint}")
+        items = set()
+        for item in items_cursor.fetchall():
+            items.add(item[0])
+        items_cursor.close()
+
+        # Then fetch list of ids from embeddings_conn (embeddings) table
+        embeddings_cursor = self.embeddings_conn.cursor()
+        embeddings_cursor.execute("SELECT DISTINCT story FROM embeddings")
+        embeddings = set()
+        for embedding in embeddings_cursor.fetchall():
+            embeddings.add(embedding[0])
+        embeddings_cursor.close()
+
+        # Return the difference between the two lists
+        missing = items-embeddings
+        if len(missing) > 0:
+            print(
+                f"Found {len(missing)} missing stories, resetting last_processed_story ({last_processed_story})")
+            last_processed_story = min(missing)
+
         # Fetch the last processed story
         last_processed_story = self.fetch_last_processed_story()
         if last_processed_story:

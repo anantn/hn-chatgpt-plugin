@@ -229,6 +229,10 @@ async def watch_updates(encoder):
             log_with_timestamp(
                 f"Connection error: {e}, retrying in 5 seconds...")
             await asyncio.sleep(5)
+        except aiohttp.client_exceptions.ClientOSError as e:
+            log_with_timestamp(
+                f"Connection error: {e}, retrying in 5 seconds...")
+            await asyncio.sleep(5)
         except TimeoutError:
             log_with_timestamp(
                 "Connection to SSE channel timed out. Retrying in 5 seconds...")
