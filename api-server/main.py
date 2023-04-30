@@ -88,7 +88,7 @@ async def search_stories(query: str, limit: int = 1, exclude_comments: bool = Fa
             if limit > 20:
                 limit = 20
         else:
-            limit = 5
+            limit = 3
     return await utils.semantic_search(search_index, query, limit, exclude_comments)
 
 
@@ -108,7 +108,7 @@ def get_stories(by: Optional[str] = Query(None),
                 min_score: Optional[int] = None, max_score: Optional[int] = None,
                 min_comments: Optional[int] = None, max_comments: Optional[int] = None,
                 sort_by: Union[SortBy, None] = None, sort_order: Union[SortOrder, None] = None,
-                skip: int = 0, limit: int = 10):
+                skip: int = 0, limit: int = utils.DEFAULT_NUM):
     if sort_by is None and sort_order is None:
         sort_by = SortBy.score
         sort_order = SortOrder.desc
@@ -132,7 +132,7 @@ def get_comment(id: int = Query(1)):
 def get_comments(by: Optional[str] = Query(None),
                  before_time: Optional[int] = None, after_time: Optional[int] = None,
                  sort_by: Union[SortBy, None] = None, sort_order: Union[SortOrder, None] = None,
-                 skip: int = 0, limit: int = 50):
+                 skip: int = 0, limit: int = utils.DEFAULT_NUM):
     if sort_by is None and sort_order is None:
         sort_by = SortBy.time
         sort_order = SortOrder.desc
@@ -145,7 +145,7 @@ def get_comments(by: Optional[str] = Query(None),
 def get_polls(by: Optional[str] = Query(None),
               before_time: Optional[int] = None, after_time: Optional[int] = None,
               sort_by: Union[SortBy, None] = None, sort_order: Union[SortOrder, None] = None,
-              skip: int = 0, limit: int = 10, query: Optional[str] = None):
+              skip: int = 0, limit: int = utils.DEFAULT_NUM, query: Optional[str] = None):
     if sort_by is None and sort_order is None:
         sort_by = SortBy.score
         sort_order = SortOrder.desc
@@ -184,9 +184,9 @@ def get_user(id: str = Query("pg")):
 def get_users(before_created: Optional[int] = None, after_created: Optional[int] = None,
               min_karma: Optional[int] = None, max_karma: Optional[int] = None,
               sort_by: Union[UserSortBy, None] = None, sort_order: Union[SortOrder, None] = None,
-              skip: int = 0, limit: int = 10):
-    if limit > 100:
-        limit = 100
+              skip: int = 0, limit: int = utils.DEFAULT_NUM):
+    if limit > utils.MAX_NUM:
+        limit = utils.MAX_NUM
     session = scoped_session()
 
     # Select columns except submitted

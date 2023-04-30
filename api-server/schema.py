@@ -180,7 +180,9 @@ def get_schema(app):
     openapi_schema["paths"]["/search"]["get"]["parameters"][0]["description"] = \
         "Query string to search for."
     openapi_schema["paths"]["/search"]["get"]["parameters"][1]["description"] = \
-        "Limit the number of results returned (default 1, max 5)."
+        "Limit the number of results returned (default 1, max 3)."
+    openapi_schema["paths"]["/search"]["get"]["parameters"][2]["description"] = \
+        "Returns results without comment data. If this is set to true, max limit is increased to 20."
 
     openapi_schema["paths"]["/story"]["get"]["summary"] = \
         "Retrieve a story along with all its comments."
@@ -220,7 +222,7 @@ def get_schema(app):
     openapi_schema["paths"]["/stories"]["get"]["parameters"][9]["description"] = \
         "Offset the results returned, use to page through multiple results."
     openapi_schema["paths"]["/stories"]["get"]["parameters"][10]["description"] = \
-        "Limit the number of results returned (default 10, max 100)."
+        "Limit the number of results returned (default 10, max 50)."
 
     openapi_schema["paths"]["/comments"]["get"]["summary"] = \
         "Find comments matching a variety of criteria. Comments are sorted by the most recent ones by default."
@@ -237,7 +239,7 @@ def get_schema(app):
     openapi_schema["paths"]["/comments"]["get"]["parameters"][5]["description"] = \
         "Offset the results returned, use to page through multiple results."
     openapi_schema["paths"]["/comments"]["get"]["parameters"][6]["description"] = \
-        "Limit the number of results returned (default 50, max 100)."
+        "Limit the number of results returned (default 10, max 50)."
 
     openapi_schema["paths"]["/polls"]["get"]["summary"] = \
         "Find polls matching a variety of criteria. Polls are sorted by their score (upvotes) by default."
@@ -254,7 +256,7 @@ def get_schema(app):
     openapi_schema["paths"]["/polls"]["get"]["parameters"][5]["description"] = \
         "Offset the results returned, use to page through multiple results."
     openapi_schema["paths"]["/polls"]["get"]["parameters"][6]["description"] = \
-        "Limit the number of results returned (default 10, max 100)."
+        "Limit the number of results returned (default 10, max 50)."
     openapi_schema["paths"]["/polls"]["get"]["parameters"][7]["description"] = \
         "Search for polls whose title or text contains this phrase."
 
@@ -275,7 +277,7 @@ def get_schema(app):
     openapi_schema["paths"]["/users"]["get"]["parameters"][6]["description"] = \
         "Offset the results returned, use to page through multiple results."
     openapi_schema["paths"]["/users"]["get"]["parameters"][7]["description"] = \
-        "Limit the number of results returned (default 10, max 100)."
+        "Limit the number of results returned (default 10, max 50)."
 
     openapi_schema["components"]["schemas"]["SortBy"]["description"] = \
         "Use to ensure results are sorted by a specific value. Valid values are 'score', 'descendant', or 'time'."

@@ -9,6 +9,9 @@ from schema import *
 
 # Helper methods
 
+DEFAULT_NUM = 10
+MAX_NUM = 50
+
 
 def get_items(session, item_type: Optional[ItemType] = None,
               by: Optional[str] = None, before_time: Optional[int] = None, after_time: Optional[int] = None,
@@ -16,8 +19,8 @@ def get_items(session, item_type: Optional[ItemType] = None,
               min_comments: Optional[int] = None, max_comments: Optional[int] = None,
               sort_by: Union[SortBy, None] = None, sort_order: Union[SortOrder, None] = None,
               skip: int = 0, limit: int = 10, query: Optional[str] = None):
-    if limit > 100:
-        limit = 100
+    if limit > MAX_NUM:
+        limit = MAX_NUM
 
     if item_type is not None:
         item_type = item_type.value
