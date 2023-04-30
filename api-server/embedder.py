@@ -161,7 +161,7 @@ class DocumentEmbedder:
             """
             SELECT *
             FROM items
-            WHERE parent = ? AND type = 'comment' AND text IS NOT NULL
+            WHERE type = 'comment' AND parent = ? AND text IS NOT NULL
             """,
             (parent_id,),
         )

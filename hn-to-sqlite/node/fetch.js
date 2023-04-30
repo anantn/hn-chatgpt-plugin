@@ -91,7 +91,8 @@ function createTables(db) {
 
     // These indexes were created manually
     // CREATE INDEX idx_kids_item_kid ON kids(item, kid);
-    // CREATE INDEX idx_items_composite ON items(type, by, time, parent, score, descendants);
+    // CREATE INDEX idx_items_composite ON items(type, by, time, score, descendants);
+    // CREATE INDEX idx_items_type_parent ON items(type, parent);
 }
 
 function usage() {
