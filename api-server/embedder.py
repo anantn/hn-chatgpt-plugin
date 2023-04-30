@@ -91,7 +91,7 @@ class DocumentEmbedder:
         if len(missing) > 0:
             print(
                 f"Found {len(missing)} missing stories, resetting last_processed_story ({last_processed_story})")
-            last_processed_story = min(missing)
+            last_processed_story = min(min(missing), last_processed_story)
 
         if last_processed_story:
             print("Found last processed story: ", last_processed_story)
