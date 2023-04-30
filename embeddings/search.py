@@ -6,10 +6,10 @@ import sqlite3
 import numpy as np
 import faiss
 import psutil
+from datetime import datetime
 from InstructorEmbedding import INSTRUCTOR
 
 TOP_K = 50
-TOP_N = 10
 NLIST = 100
 NPROBE = 35
 start_time = time.time()
@@ -22,12 +22,13 @@ def print_memory_usage(phase):
     print(f"{elapsed:.2f}s Memory used ({phase}): {mem_info.rss / (1024 * 1024):.2f} MB")
 
 
-def fetch_story_title(conn, story_id):
+def fetch_story_metadata(conn, story_id):
     cursor = conn.cursor()
-    cursor.execute("SELECT title FROM items WHERE id = ?", (story_id,))
-    title = cursor.fetchone()[0]
+    cursor.execute(
+        "SELECT title, score, time FROM items WHERE id = ?", (story_id,))
+    result = cursor.fetchone()
     cursor.close()
-    return title
+    return result
 
 
 def load_embeddings(embeddings_db_path):
@@ -69,6 +70,40 @@ def create_ivf_flat_index(embeddings):
 def embed_query(query, model):
     return model.encode(
         [['Represent the question for retrieving supporting forum discussions: ', query]])[0]
+
+
+def normalize(values, reverse=False):
+    min_val = min(values)
+    max_val = max(values)
+    normalized_values = [(value - min_val) / (max_val - min_val)
+                         for value in values]
+    if reverse:
+        normalized_values = [1 - value for value in normalized_values]
+    return normalized_values
+
+
+def compute_rankings(results, query):
+    scores, ages, distances = zip(
+        *[(score, age, distance) for _, score, age, _, distance in results])
+    normalized_scores = normalize(scores)
+    normalized_ages = normalize(ages)
+    normalized_distances = normalize(distances, reverse=True)
+
+    w1, w2, w3, w4 = 0.4, 0.4, 0.1, 0.1
+
+    rankings = []
+    for i, (title, score, age, item_id, distance) in enumerate(results):
+        query_words = set(word.lower() for word in query.split())
+        title_words = set(word.lower() for word in title.split())
+        matches = len(query_words.intersection(title_words))
+        direct_match_boost = w4 * matches
+
+        score_rank = w1 * \
+            normalized_scores[i] + w2 * normalized_distances[i] + \
+            w3 * normalized_ages[i] + direct_match_boost
+        rankings.append((score_rank, title, score, age, item_id, distance))
+
+    return sorted(rankings, reverse=True)
 
 
 def main():
@@ -120,25 +155,26 @@ def main():
         print(f"Embedding generation took {end_time - start_time:.2f} seconds")
 
         # Search the FAISS index
-
         start_time = time.time()
-        distances, indices = index_with_ids.search(
+        D, I = index_with_ids.search(
             np.array([query_embedding]), TOP_K)
         end_time = time.time()
         print(f"FAISS search took {end_time - start_time:.2f} seconds")
 
-        # Print the titles of the top 5 unique stories
-        print(f"\nTop {TOP_N} unique stories for the query:")
+        # Fetch metadata and do ranking
+        story_metadata = [(title, score, age, story_id, l2_distance) for story_id, l2_distance in zip(
+            I[0], D[0]) for title, score, age in [fetch_story_metadata(items_conn, int(story_id))]]
+        ranked_stories = compute_rankings(story_metadata, query)
+
+        # Print the titles of the ranked unique stories
+        print(f"\nUnique stories for the query (from {TOP_K} selects):")
         unique_story_ids = set()
-        count = 0
-        for story_id, l2_distance in zip(indices[0], distances[0]):
+        for score_rank, title, score, age, story_id, distance in ranked_stories:
             if story_id not in unique_story_ids:
                 unique_story_ids.add(story_id)
-                title = fetch_story_title(items_conn, int(story_id))
-                print(f"{title} {story_id} ({l2_distance:.2f})")
-                count += 1
-                if count == TOP_N:
-                    break
+                submitted = datetime.fromtimestamp(age).strftime("%Y-%m-%d")
+                print(
+                    f"{score_rank:.3f} {score:4} {submitted} {distance:.2f} {story_id:10} {title}")
 
 
 if __name__ == "__main__":

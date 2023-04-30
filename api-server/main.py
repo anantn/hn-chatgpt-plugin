@@ -136,15 +136,16 @@ async def search_stories(query: str, limit: int = 1, exclude_comments: bool = Fa
 
     # Perform semantic search
     start = time.time()
-    story_ids = await search_index.search(query)
+    results = await search_index.search(query)
     stop = time.time()
-    print(f"Search took {stop - start:.2f} seconds - {len(story_ids)} results")
-    story_ids = story_ids[:limit]
+    print(f"Search took {stop - start:.2f} seconds - {len(results)} results")
+    results = results[:limit]
 
     # Fetch stories, their top 10 kid comments, and first child comment of each from the database
     cursor = dbsync.conn.cursor()
     stories = []
-    for story_id in story_ids:
+    ranking = []
+    for (story_id, distance) in results:
         cursor.execute(f"SELECT * FROM items WHERE id = {story_id}")
         story_row = cursor.fetchone()
         if story_row:
