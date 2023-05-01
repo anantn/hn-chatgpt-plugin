@@ -114,6 +114,15 @@ class StoryResponse(ItemResponse):
     class Config:
         orm_mode = True
 
+    @validator("url", pre=True, always=True)
+    def set_url(cls, v, values):
+        url = values.get("url")
+        if not url:
+            id = values.get("id")
+            if id:
+                return f"https://news.ycombinator.com/item?id={id}"
+        return v
+
 
 class PollResponse(ItemResponse):
     title: str

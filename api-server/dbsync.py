@@ -11,11 +11,13 @@ from aiohttp_sse_client.client import EventSource
 BATCH_SIZE = 64
 OFFSET = 1000
 HN_URL = "https://hacker-news.firebaseio.com/v0"
+EMBED_REALTIME_FREQ = 90  # seconds
 conn = None
 
 # Create an asyncio event to signal when the initial fetch is complete
 initial_fetch_complete_event = asyncio.Event()
 embed_realtime = False
+search_index_ref = None
 
 
 def log_with_timestamp(*args):
@@ -171,7 +173,12 @@ async def process_affected_stories(encoder):
             log_with_timestamp(
                 f"Processing affected stories for realtime embed: {len(to_process)}")
             await encoder.process_stories(to_process)
-        await asyncio.sleep(600)
+            if search_index_ref:
+                search_index_ref.update_embeddings(to_process)
+            else:
+                log_with_timestamp(
+                    f"WARNING: could not update FAISS index!")
+        await asyncio.sleep(EMBED_REALTIME_FREQ)
 
 
 async def process_updates(updates_array, encoder):

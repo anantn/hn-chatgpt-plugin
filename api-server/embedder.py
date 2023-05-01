@@ -94,7 +94,7 @@ class DocumentEmbedder:
     async def process_stories(self, story_ids):
         story_ids_str = ', '.join(map(str, story_ids))
         constraint = f"FROM items WHERE type = 'story' AND id IN ({story_ids_str})"
-        await self.process_stories_with_constraint(constraint)
+        await self.process_stories_with_constraint(constraint, batch_size=2)
 
     async def process_catchup_stories(self, offset=0):
         # Fetch all interesting stories
@@ -140,7 +140,7 @@ class DocumentEmbedder:
             constraint += f" AND id > {last_processed_story}"
         await self.process_stories_with_constraint(constraint)
 
-    async def process_stories_with_constraint(self, constraint):
+    async def process_stories_with_constraint(self, constraint, batch_size=BATCH_SIZE):
         cursor = self.conn.cursor()
         cursor.execute(f"SELECT COUNT(*) {constraint}")
         total_stories = cursor.fetchone()[0]
@@ -157,10 +157,10 @@ class DocumentEmbedder:
             for part_index, document_part in enumerate(document_parts):
                 story_batch.append(
                     (story["id"], part_index, document_part))
-                if len(story_batch) == self.BATCH_SIZE:
+                if len(story_batch) == batch_size:
                     await self.process_batch(story_batch)
+                    progress.update(len(story_batch))
                     story_batch = []
-                    progress.update(self.BATCH_SIZE)
             doc_progress.update()
 
         # Process the remaining stories in the batch

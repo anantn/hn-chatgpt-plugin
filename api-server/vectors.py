@@ -24,13 +24,12 @@ class Index:
         embeddings, item_ids = self.load_embeddings()
 
         self.print_memory_usage("before flat_index")
-        index = self.create_ivf_flat_index(embeddings)
-        index.train(embeddings)
-        index.nprobe = NPROBE
+        self.index = self.create_ivf_flat_index(embeddings)
+        self.index.train(embeddings)
+        self.index.nprobe = NPROBE
         self.print_memory_usage("after training")
 
-        self.index_with_ids = faiss.IndexIDMap(index)
-        self.index_with_ids.add_with_ids(embeddings, item_ids)
+        self.index.add_with_ids(embeddings, item_ids)
         embeddings = None
         gc.collect()
         self.print_memory_usage("vector index ready!")
@@ -40,7 +39,7 @@ class Index:
 
     async def search(self, query, top_k=TOP_K):
         query_embedding = await self.embed_query(query)
-        D, I = self.index_with_ids.search(np.array([query_embedding]), top_k)
+        D, I = self.index.search(np.array([query_embedding]), top_k)
 
         unique_story_ids = []
         seen_ids = set()
@@ -55,12 +54,14 @@ class Index:
         return value[0]
 
     def update_embeddings(self, story_ids):
+        self.print_memory_usage(f"updating {len(story_ids)} embeddings")
         for story_id in story_ids:
-            self.index_with_ids.remove_ids(
+            self.index.remove_ids(
                 np.array([story_id], dtype=np.int64))
             new_embeddings, new_item_ids = self.load_embeddings(
                 f"WHERE story = {story_id}")
-            self.index_with_ids.add_with_ids(new_embeddings, new_item_ids)
+            self.index.add_with_ids(new_embeddings, new_item_ids)
+        self.print_memory_usage(f"finished embeddings index update!")
 
     def load_embeddings(self, constraint=""):
         cursor = self.embeddings_conn.cursor()

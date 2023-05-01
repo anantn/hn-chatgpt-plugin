@@ -196,11 +196,8 @@ async def main():
     await encoder.encode([["test", "query"]])
 
     catchup_stories = True
-    catchup_embeddings = True
     if OPTS and "noupdate" in OPTS:
         catchup_stories = False
-    if OPTS and "noembed" in OPTS:
-        catchup_embeddings = False
 
     # Catch up on all data updates
     global doc_encoder
@@ -208,14 +205,16 @@ async def main():
     updates, embedder_task = await dbsync.run(DB_PATH, catchup_stories, doc_encoder)
 
     # Catch up on document embeddings, offset = go back 1000 stories and refresh
-    if catchup_embeddings:
+    if OPTS and "noembed" not in OPTS:
         await doc_encoder.process_catchup_stories(1000)
-    dbsync.embed_realtime = True
+    if OPTS and "noembedrt" not in OPTS:
+        dbsync.embed_realtime = True
 
     # Load vector search
     global search_index
     prefix = os.path.splitext(DB_PATH)[0]
     search_index = vectors.Index(encoder, f"{prefix}_embeddings.db")
+    dbsync.search_index_ref = search_index
 
     # Start API server
     server = uvicorn.Server(uvicorn.Config(
