@@ -107,7 +107,7 @@ def get_items(session, item_type: Optional[ItemType] = None,
     return items_query.all()
 
 
-def semantic_search(url, session, query, limit, exclude_comments):
+def semantic_search(url, session, query, skip, limit, exclude_comments):
     query = query.strip()
 
     # Perform semantic search
@@ -122,7 +122,7 @@ def semantic_search(url, session, query, limit, exclude_comments):
     rank_time = time.time() - start
     print(
         f"search({search_time:.3f}) rank({rank_time:.3f}) num({len(results)} -> {limit}): '{query}'")
-    results = results[:limit]
+    results = results[skip:skip+limit]
 
     # Fetch stories and their comments
     stories = []
@@ -186,14 +186,14 @@ def compute_rankings(session, query, results):
     return sorted(rankings, reverse=True)
 
 
-# Top 10 kid comments, and first child comment of each from the database
+# Top 5 kid comments, and first child comment of each from the database
 def get_comments_text(cursor, story_id):
     comment_text = []
     cursor.execute(f"""SELECT i.* FROM items i
                     JOIN kids k ON i.id = k.kid
                     WHERE k.item = {story_id} AND i.type = 'comment'
                     ORDER BY k.display_order
-                    LIMIT 10""")
+                    LIMIT 5""")
     column_names = [desc[0] for desc in cursor.description]
     comments = [Item(**dict(zip(column_names, row)))
                 for row in cursor.fetchall()]

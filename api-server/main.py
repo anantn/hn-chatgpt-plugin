@@ -55,15 +55,15 @@ def get_image():
 
 
 @app.get("/search", response_model=List[StoryResponse])
-def search_stories(query: str, limit: int = 1, exclude_comments: bool = False):
-    if limit > 5:
+def search_stories(query: str, skip: int = 0, limit: int = 3, exclude_comments: bool = False):
+    if limit > 3:
         if exclude_comments:
             if limit > 20:
                 limit = 20
         else:
             limit = 3
     session = scoped_session()
-    return utils.semantic_search(DATA_SERVER, session, query, limit, exclude_comments)
+    return utils.semantic_search(DATA_SERVER, session, query, skip, limit, exclude_comments)
 
 
 @app.get("/story", response_model=StoryResponse)

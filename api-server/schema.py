@@ -180,8 +180,10 @@ def get_schema(app):
     openapi_schema["paths"]["/search"]["get"]["parameters"][0]["description"] = \
         "Query string to search for."
     openapi_schema["paths"]["/search"]["get"]["parameters"][1]["description"] = \
-        "Limit the number of results returned (default 1, max 3)."
+        "Skip this number of results (useful for paging, default 0)."
     openapi_schema["paths"]["/search"]["get"]["parameters"][2]["description"] = \
+        "Limit the number of results returned (default 3, max 3)."
+    openapi_schema["paths"]["/search"]["get"]["parameters"][3]["description"] = \
         "Returns results without comment data. If this is set to true, max limit is increased to 20."
 
     openapi_schema["paths"]["/story"]["get"]["summary"] = \
