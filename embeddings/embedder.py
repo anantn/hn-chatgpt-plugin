@@ -73,9 +73,12 @@ class DocumentEmbedder:
         for story_id in story_ids:
             constraint = f"FROM items WHERE type = 'story' AND id = {story_id}"
             cursor.execute(f"SELECT score, descendants {constraint}")
-            score, descendants = cursor.fetchone()
-            score = 0 if not score else score
-            descendants = 0 if not descendants else descendants
+            result = cursor.fetchone()
+            if not result:
+                continue
+
+            score = 0 if not result[0] else result[0]
+            descendants = 0 if not result[1] else result[1]
             if score < self.MIN_SCORE or descendants < self.MIN_DESCENDANTS:
                 continue
             await self.process_stories_with_constraint(constraint, progress, doc_progress, batch_size=1)
