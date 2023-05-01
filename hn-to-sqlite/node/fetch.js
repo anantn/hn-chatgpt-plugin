@@ -101,6 +101,7 @@ function createTables(db) {
     // CREATE INDEX idx_items_type_by_descendants ON items(type, by, descendants);
     // CREATE INDEX idx_items_type_time_score ON items(type, time, score);
     // CREATE INDEX idx_items_type_time_descendants ON items(type, time, descendants);
+    // CREATE INDEX idx_items_type_score_descendants on items(type, score, descendants);
 }
 
 function usage() {

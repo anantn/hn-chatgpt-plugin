@@ -1,54 +1,32 @@
-import os
 import re
 import html
 import asyncio
-import sqlite3
 import datetime
 
 from tqdm import tqdm
 from collections import defaultdict
 from InstructorEmbedding import INSTRUCTOR
 
+from utils import log, log_with_mem
+
 
 class Embedder:
-    def __init__(self, model_name='hkunlp/instructor-large', max_seq_length=1024):
-        self.model = INSTRUCTOR(model_name)
-        self.model.max_seq_length = max_seq_length
-        self.request_queue = asyncio.Queue()
-        self.priority_request_queue = asyncio.Queue()
+    def __init__(self):
+        self.model = INSTRUCTOR("hkunlp/instructor-large")
+        self.model.max_seq_length = DocumentEmbedder.TOKEN_LIMIT
+        self.request_queue = asyncio.PriorityQueue()
         self._stop_event = asyncio.Event()
         self.processing_task = asyncio.create_task(self._process_requests())
 
     async def encode(self, text_pairs, high_priority=False):
+        priority = 0 if high_priority else 1
         result_queue = asyncio.Queue()
-        if high_priority:
-            await self.priority_request_queue.put((text_pairs, result_queue))
-        else:
-            await self.request_queue.put((text_pairs, result_queue))
+        await self.request_queue.put((priority, (text_pairs, result_queue)))
         return await result_queue.get()
 
     async def _process_requests(self):
         while not self._stop_event.is_set():
-            # Prepare tasks to wait for items in both priority and regular queues
-            priority_task = asyncio.ensure_future(
-                self.priority_request_queue.get())
-            regular_task = asyncio.ensure_future(self.request_queue.get())
-
-            done, pending = await asyncio.wait(
-                [priority_task, regular_task],
-                return_when=asyncio.FIRST_COMPLETED
-            )
-
-            # Cancel any pending tasks
-            for task in pending:
-                task.cancel()
-
-            # Process the completed task, giving priority to the priority_request_queue
-            if priority_task in done:
-                text_pairs, result_queue = priority_task.result()
-            elif regular_task in done:
-                text_pairs, result_queue = regular_task.result()
-
+            _, (text_pairs, result_queue) = await self.request_queue.get()
             if text_pairs is not None:
                 embeddings = self.model.encode(text_pairs)
                 await result_queue.put(embeddings)
@@ -68,16 +46,13 @@ class DocumentEmbedder:
     BATCH_SIZE = 16
     INSTRUCTION = "Represent the forum discussion on a topic:"
 
-    def __init__(self, db_path, model):
-        self.model = model
-        self.conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
-        self.conn.row_factory = sqlite3.Row
-
-        prefix = os.path.splitext(db_path)[0]
-        self.embeddings_conn = sqlite3.connect(f"{prefix}_embeddings.db")
+    def __init__(self, db_conn, embed_conn, encoder):
+        self.db_conn = db_conn
+        self.embed_conn = embed_conn
+        self.encoder = encoder
 
         # Create the embeddings table if it doesn't exist
-        self.embeddings_conn.execute("""
+        self.embed_conn.execute("""
         CREATE TABLE IF NOT EXISTS embeddings (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 story INTEGER,
@@ -87,70 +62,55 @@ class DocumentEmbedder:
             )
         """)
 
-    def shutdown(self):
-        self.conn.close()
-        self.embeddings_conn.close()
-
     async def process_stories(self, story_ids):
-        story_ids_str = ', '.join(map(str, story_ids))
-        constraint = f"FROM items WHERE type = 'story' AND id IN ({story_ids_str})"
-        await self.process_stories_with_constraint(constraint, batch_size=2)
+        progress = tqdm(desc="parts processed")
+        doc_progress = tqdm(desc="documents processed", total=len(story_ids))
+        for story_id in story_ids:
+            constraint = f"FROM items WHERE type = 'story' AND id = {story_id}"
+            await self.process_stories_with_constraint(constraint, progress, doc_progress, batch_size=1)
 
     async def process_catchup_stories(self, offset=0):
         # Fetch all interesting stories
         constraint = "FROM items WHERE type = 'story' AND score >= 20 AND descendants >= 3"
 
-        # Fetch list of ids from conn (items) table
-        items_cursor = self.conn.cursor()
-        items_cursor.execute(f"SELECT id {constraint}")
-        items = set()
-        for item in items_cursor.fetchall():
-            items.add(item[0])
-        items_cursor.close()
-
-        # Then fetch list of ids from embeddings_conn (embeddings) table
-        embeddings_cursor = self.embeddings_conn.cursor()
-        embeddings_cursor.execute("SELECT DISTINCT story FROM embeddings")
-        embeddings = set()
-        for embedding in embeddings_cursor.fetchall():
-            embeddings.add(embedding[0])
-        embeddings_cursor.close()
-
         # Fetch the last processed story
         last_processed_story = self.fetch_last_processed_story()
 
         # Return the difference between the two lists
-        missing = items-embeddings
+        missing = self.find_missing(constraint)
         if len(missing) > 0:
-            print(
+            log(
                 f"Found {len(missing)} missing stories, resetting last_processed_story ({last_processed_story})")
             last_processed_story = min(min(missing), last_processed_story)
 
         if last_processed_story:
-            print("Found last processed story: ", last_processed_story)
+            log(f"Found last processed story: {last_processed_story}")
             if offset != 0:
-                cursor = self.conn.cursor()
+                cursor = self.db_conn.cursor()
                 cursor.execute('''SELECT id FROM (
         SELECT id FROM items WHERE id < ? AND type='story' ORDER BY id DESC
         ) AS subquery LIMIT 1 OFFSET ?;''', (last_processed_story, offset-1))
                 last_processed_story = cursor.fetchone()[0]
                 cursor.close()
-            print(
-                f"Resuming from story {last_processed_story} (after offset: {offset}))")
+            log(
+                f"Resuming from story {last_processed_story} (after offset: {offset})")
             constraint += f" AND id > {last_processed_story}"
-        await self.process_stories_with_constraint(constraint)
 
-    async def process_stories_with_constraint(self, constraint, batch_size=BATCH_SIZE):
-        cursor = self.conn.cursor()
+        cursor = self.db_conn.cursor()
         cursor.execute(f"SELECT COUNT(*) {constraint}")
         total_stories = cursor.fetchone()[0]
         cursor.close()
-        print(f"Found total eligible discussions: {total_stories}")
-
-        story_iter = self.story_generator(constraint)
-        story_batch = []
+        log(f"Found total eligible discussions: {total_stories}")
         progress = tqdm(desc="parts processed")
         doc_progress = tqdm(desc="documents processed", total=total_stories)
+
+        await self.process_stories_with_constraint(constraint, progress, doc_progress)
+        progress.close()
+        doc_progress.close()
+
+    async def process_stories_with_constraint(self, constraint, progress, doc_progress, batch_size=BATCH_SIZE):
+        story_iter = self.story_generator(constraint)
+        story_batch = []
 
         for (story, comments) in story_iter:
             document_parts = self.create_documents(story, comments)
@@ -167,18 +127,15 @@ class DocumentEmbedder:
         if story_batch:
             await self.process_batch(story_batch)
 
-        progress.close()
-        doc_progress.close()
-
     async def process_batch(self, story_batch):
-        embeddings_batch = await self.model.encode(
+        embeddings_batch = await self.encoder.encode(
             [[self.INSTRUCTION, part] for _, _, part in story_batch]
         )
         insert_data = [
             (story_id, part_index, embeddings.tobytes())
             for (story_id, part_index, _), embeddings in zip(story_batch, embeddings_batch)
         ]
-        cursor = self.embeddings_conn.cursor()
+        cursor = self.embed_conn.cursor()
         cursor.executemany(
             """
             INSERT OR REPLACE INTO embeddings (story, part_index, embedding)
@@ -186,22 +143,58 @@ class DocumentEmbedder:
         """,
             insert_data,
         )
-        self.embeddings_conn.commit()
+        self.embed_conn.commit()
         cursor.close()
+
+    def find_missing(self, constraint):
+        # Fetch list of ids from conn (items) table
+        items_cursor = self.db_conn.cursor()
+        items_cursor.execute(f"SELECT COUNT(*) {constraint}")
+        items_count = items_cursor.fetchone()[0]
+        log_with_mem(f"Found {items_count} interesting stories from items")
+
+        embeddings_cursor = self.embed_conn.cursor()
+        embeddings_cursor.execute(
+            "SELECT COUNT(DISTINCT story) FROM embeddings")
+        embeddings_count = embeddings_cursor.fetchone()[0]
+        log_with_mem(f"Found {embeddings_count} stories with embeddings")
+
+        # If no difference, just return
+        if items_count <= embeddings_count:
+            items_cursor.close()
+            embeddings_cursor.close()
+            return set()
+
+        # Find difference
+        log_with_mem("Finding missing stories")
+        items = set()
+        items_cursor.execute(f"SELECT id {constraint}")
+        for item in items_cursor.fetchall():
+            items.add(item[0])
+            item = items_cursor.fetchone()
+        items_cursor.close()
+
+        embeddings = set()
+        embeddings_cursor.execute("SELECT DISTINCT story FROM embeddings")
+        for embedding in embeddings_cursor.fetchall():
+            embeddings.add(embedding[0])
+        embeddings_cursor.close()
+
+        return items-embeddings
 
     def format_date(self, unix_timestamp):
         dt = datetime.datetime.fromtimestamp(unix_timestamp)
         return dt.strftime("%Y-%m-%d")
 
     def story_generator(self, constraint):
-        cursor = self.conn.cursor()
+        cursor = self.db_conn.cursor()
         cursor.execute(f"SELECT id, title, text, parent {constraint}")
-
-        for row in cursor:
+        row = cursor.fetchone()
+        while row:
             story = dict(row)
             comments = self.fetch_comment_data(story["id"])
             yield story, comments
-
+            row = cursor.fetchone()
         cursor.close()
 
     def filter_comments(self, comments):
@@ -212,7 +205,7 @@ class DocumentEmbedder:
         return filtered_comments
 
     def fetch_comments(self, parent_id):
-        cursor = self.conn.cursor()
+        cursor = self.db_conn.cursor()
         cursor.execute(
             """
             SELECT id, title, text, parent
@@ -291,7 +284,7 @@ class DocumentEmbedder:
         return document_parts
 
     def fetch_last_processed_story(self):
-        cursor = self.embeddings_conn.cursor()
+        cursor = self.embed_conn.cursor()
         cursor.execute("SELECT MAX(story) FROM embeddings")
         result = cursor.fetchone()
         cursor.close()

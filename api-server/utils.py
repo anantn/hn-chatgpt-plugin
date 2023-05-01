@@ -1,16 +1,17 @@
 import time
 import asyncio
+import requests
 
 from sqlalchemy import or_
+from sqlalchemy.sql import text
 from sqlalchemy.orm import noload
+
 from typing import Optional, Union
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
-from starlette.concurrency import run_in_threadpool
 
-import dbsync
 from schema import *
 
 # Helper methods
@@ -106,18 +107,18 @@ def get_items(session, item_type: Optional[ItemType] = None,
     return items_query.all()
 
 
-async def semantic_search(search_index, query, limit, exclude_comments):
+def semantic_search(url, session, query, limit, exclude_comments):
     query = query.strip()
-    cursor = dbsync.conn.cursor()
 
     # Perform semantic search
     start = time.time()
-    results = await search_index.search(query)
+    req = requests.get(url, params={"query": query})
+    results = req.json()
     search_time = time.time() - start
 
     # Rank results
     start = time.time()
-    results = compute_rankings(cursor, query, results)
+    results = compute_rankings(session, query, results)
     rank_time = time.time() - start
     print(
         f"search({search_time:.3f}) rank({rank_time:.3f}) num({len(results)} -> {limit}): '{query}'")
@@ -126,10 +127,12 @@ async def semantic_search(search_index, query, limit, exclude_comments):
     # Fetch stories and their comments
     stories = []
     for (_, story_id) in results:
-        cursor.execute(f"SELECT * FROM items WHERE id = {story_id}")
+        cursor = session.execute(
+            text(f"SELECT * FROM items WHERE id = {story_id}")).cursor
         story_row = cursor.fetchone()
+        column_names = [desc[0] for desc in cursor.description]
         if story_row:
-            story = Item(**dict(story_row))
+            story = Item(**dict(zip(column_names, story_row)))
             if not exclude_comments:
                 story.comment_text = get_comments_text(cursor, story_id)
             stories.append(story)
@@ -147,17 +150,18 @@ def normalize(values, reverse=False):
     return normalized_values
 
 
-def compute_rankings(cursor, query, results):
+def compute_rankings(session, query, results):
     expanded = []
     for (story_id, distance) in results:
-        cursor.execute(
-            "SELECT title, score, time FROM items WHERE id = ?", (story_id,))
+        cursor = session.execute(
+            text(f"SELECT title, score, time FROM items WHERE id = {story_id}")).cursor
         title, score, age = cursor.fetchone()
         if title is None:
             continue
         score = 1 if score is None else score
         age = 0 if age is None else age
         expanded.append((story_id, distance, title, score, age))
+        cursor.close()
 
     scores, ages, distances = zip(
         *[(score, age, distance) for _, distance, _, score, age in expanded])
@@ -172,11 +176,11 @@ def compute_rankings(cursor, query, results):
         query_words = set(word.lower() for word in query.split())
         title_words = set(word.lower() for word in title.split())
         matches = len(query_words.intersection(title_words))
-        direct_match_boost = w4 * matches
 
         score_rank = w1 * normalized_scores[i] \
-            + w2 * normalized_distances[i] + \
-            w3 * normalized_ages[i] + direct_match_boost
+            + w2 * normalized_distances[i] \
+            + w3 * normalized_ages[i] \
+            + w4 * matches
         rankings.append((score_rank, story_id))
 
     return sorted(rankings, reverse=True)
@@ -190,7 +194,9 @@ def get_comments_text(cursor, story_id):
                     WHERE k.item = {story_id} AND i.type = 'comment'
                     ORDER BY k.display_order
                     LIMIT 10""")
-    comments = [Item(**dict(row)) for row in cursor.fetchall()]
+    column_names = [desc[0] for desc in cursor.description]
+    comments = [Item(**dict(zip(column_names, row)))
+                for row in cursor.fetchall()]
     for comment in comments:
         if comment.text:
             comment_text.append(comment.text)
@@ -201,7 +207,7 @@ def get_comments_text(cursor, story_id):
                             LIMIT 1""")
             child_row = cursor.fetchone()
             if child_row:
-                child_comment = Item(**dict(child_row))
+                child_comment = Item(**dict(zip(column_names, child_row)))
                 if child_comment.text:
                     comment_text.append(child_comment.text)
     return comment_text
