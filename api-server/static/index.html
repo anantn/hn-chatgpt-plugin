@@ -124,7 +124,9 @@
 
                 const title = document.createElement("a");
                 title.className = "title";
-                title.href = story.url;
+                if (story.url) {
+                    title.href = story.url;
+                }
                 title.textContent = story.title;
                 storyDiv.appendChild(title);
 
