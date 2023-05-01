@@ -130,7 +130,7 @@ def get_polls(by: Optional[str] = Query(None),
             working_item.parts = None
             item_pollopts = session.query(Item).filter(
                 Item.id.in_(item_parts)).all()
-            parts = [ItemResponse.from_orm(pollopt)
+            parts = [PollResponse.from_orm(pollopt)
                      for pollopt in item_pollopts]
         else:
             parts = []

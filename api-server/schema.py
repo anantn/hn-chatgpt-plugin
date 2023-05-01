@@ -116,10 +116,10 @@ class StoryResponse(ItemResponse):
 
 
 class PollResponse(ItemResponse):
-    title: str
+    title: Optional[str]
     score: Optional[int] = 0
     descendants: Optional[int] = 0
-    parts: Optional[List[ItemResponse]] = None
+    parts: Optional[List['PollResponse']] = None
 
     class Config:
         orm_mode = True
