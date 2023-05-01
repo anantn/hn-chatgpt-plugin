@@ -207,7 +207,7 @@ async def main():
     # Catch up on document embeddings, offset = go back 1000 stories and refresh
     if OPTS and "noembed" not in OPTS:
         await doc_encoder.process_catchup_stories(1000)
-    if OPTS and "noembedrt" not in OPTS:
+    if OPTS and "nortupd" not in OPTS:
         dbsync.embed_realtime = True
 
     # Load vector search
