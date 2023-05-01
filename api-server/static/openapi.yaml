@@ -25,7 +25,7 @@ paths:
         schema:
           type: integer
           default: 0
-        name: limit
+        name: skip
         in: query
         description: "Skip this number of results (useful for paging, default 0)."
       - required: false
@@ -124,6 +124,7 @@ paths:
             - score
             - time
             - descendants
+          default: score
         name: sort_by
         in: query
         description: Sort results by score (upvotes, default), descendants (number of comments), time (of submission).
@@ -205,6 +206,7 @@ paths:
             - score
             - time
             - descendants
+          default: time
         name: sort_by
         in: query
         description: Sort results by score (upvotes), descendants (number of comments), time (of submission, default).
@@ -216,6 +218,7 @@ paths:
             - desc
         name: sort_order
         in: query
+      - required: false
         schema:
           type: integer
           default: 0
@@ -263,6 +266,7 @@ paths:
             - score
             - time
             - descendants
+          default: score
         name: sort_by
         in: query
       - required: false
