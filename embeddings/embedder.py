@@ -45,6 +45,8 @@ class DocumentEmbedder:
     TOKEN_LIMIT = 1024
     BATCH_SIZE = 16
     INSTRUCTION = "Represent the forum discussion on a topic:"
+    MIN_SCORE = 20
+    MIN_DESCENDANTS = 3
 
     def __init__(self, db_conn, embed_conn, encoder):
         self.db_conn = db_conn
@@ -64,14 +66,29 @@ class DocumentEmbedder:
 
     async def process_stories(self, story_ids):
         progress = tqdm(desc="parts processed")
-        doc_progress = tqdm(desc="documents processed", total=len(story_ids))
+        doc_progress = tqdm(desc="documents processed")
+
+        processed = []
+        cursor = self.db_conn.cursor()
         for story_id in story_ids:
             constraint = f"FROM items WHERE type = 'story' AND id = {story_id}"
+            cursor.execute(f"SELECT score, descendants {constraint}")
+            score, descendants = cursor.fetchone()
+            score = 0 if not score else score
+            descendants = 0 if not descendants else descendants
+            if score < self.MIN_SCORE or descendants < self.MIN_DESCENDANTS:
+                continue
             await self.process_stories_with_constraint(constraint, progress, doc_progress, batch_size=1)
+            processed.append(story_id)
+
+        progress.close()
+        doc_progress.close()
+        return processed
 
     async def process_catchup_stories(self, offset=0):
         # Fetch all interesting stories
-        constraint = "FROM items WHERE type = 'story' AND score >= 20 AND descendants >= 3"
+        interesting = f"AND score >= {self.MIN_SCORE} AND descendants >= {self.MIN_DESCENDANTS}"
+        constraint = f"FROM items WHERE type = 'story' {interesting}"
 
         # Fetch the last processed story
         last_processed_story = self.fetch_last_processed_story()

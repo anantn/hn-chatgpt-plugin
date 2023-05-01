@@ -195,9 +195,11 @@ class SyncService:
                 self.affected_stories.clear()
                 log(
                     f"Processing affected stories for realtime embed: {len(to_process)}")
-                await self.doc_encoder.process_stories(to_process)
+                processed = await self.doc_encoder.process_stories(to_process)
+                log(
+                    f"{len(processed)} affected stories were interesting, embeddings created")
                 if self.search_index:
-                    self.search_index.update_embeddings(to_process)
+                    self.search_index.update_embeddings(processed)
                 else:
                     log(
                         f"WARNING: could not update FAISS index!")
