@@ -10,3 +10,4 @@ sentence_transformers
 InstructorEmbedding
 faiss-cpu
 psutil
+dateparser

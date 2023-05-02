@@ -188,9 +188,9 @@ def get_schema(app):
     openapi_schema["paths"]["/items"]["get"]["parameters"][2]["description"] = \
         "Find items created or submitted by this user."
     openapi_schema["paths"]["/items"]["get"]["parameters"][3]["description"] = \
-        "Find items submitted at or before this time. You can specify the time in natural language."
+        "Find items submitted at or before this time. You may specify the time in natural language."
     openapi_schema["paths"]["/items"]["get"]["parameters"][4]["description"] = \
-        "Find items submitted at or after this time. You can specify the time in natural language."
+        "Find items submitted at or after this time. You may specify the time in natural language."
     openapi_schema["paths"]["/items"]["get"]["parameters"][5]["description"] = \
         "Find items with a score equal or higher than this number."
     openapi_schema["paths"]["/items"]["get"]["parameters"][6]["description"] = \
@@ -216,9 +216,9 @@ def get_schema(app):
     openapi_schema["paths"]["/users"]["get"]["summary"] = \
         "Find users matching a variety of criteria. Users are sorted by their karma (upvotes) by default."
     openapi_schema["paths"]["/users"]["get"]["parameters"][0]["description"] = \
-        "Find users created at or before this UNIX time."
+        "Find users created at or before this time. You may specify the time in natural language."
     openapi_schema["paths"]["/users"]["get"]["parameters"][1]["description"] = \
-        "Find users created at or after this UNIX time."
+        "Find users created at or after this time. You may specify the time in natural language."
     openapi_schema["paths"]["/users"]["get"]["parameters"][2]["description"] = \
         "Find users with karma at or above this number."
     openapi_schema["paths"]["/users"]["get"]["parameters"][3]["description"] = \

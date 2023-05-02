@@ -1,7 +1,7 @@
 import os
-import copy
 import uvicorn
 import requests
+import dateparser
 
 from uvicorn.config import LOGGING_CONFIG
 from requests.exceptions import HTTPError
@@ -79,13 +79,17 @@ def get_item(id: int = Query(1), verbosity: Verbosity = Verbosity.short):
          response_model_exclude_none=True, response_model_exclude={"kids", "summary"})
 def get_items(item_type: ItemType = ItemType.story, query: Optional[str] = Query(None),
               by: Optional[str] = Query(None),
-              before_time: Optional[int] = None, after_time: Optional[int] = None,
+              before_time: Optional[str] = None, after_time: Optional[str] = None,
               min_score: Optional[int] = None, max_score: Optional[int] = None,
               min_comments: Optional[int] = None, max_comments: Optional[int] = None,
               sort_by: SortBy = SortBy.relevance, sort_order: SortOrder = SortOrder.desc,
               skip: int = 0, limit: int = utils.DEFAULT_NUM):
     if limit > utils.MAX_NUM:
         limit = utils.MAX_NUM
+    before_time = dateparser.parse(
+        before_time).timestamp() if before_time else None
+    after_time = dateparser.parse(
+        after_time).timestamp() if after_time else None
     session = scoped_session()
 
     # If query is not empty and type is story or comments, go the semantic search route
@@ -153,12 +157,16 @@ def get_user(id: str = Query("pg")):
 
 
 @app.get("/users", response_model=List[UserResponse])
-def get_users(before_created: Optional[int] = None, after_created: Optional[int] = None,
+def get_users(before_created: Optional[str] = None, after_created: Optional[str] = None,
               min_karma: Optional[int] = None, max_karma: Optional[int] = None,
               sort_by: UserSortBy = UserSortBy.karma, sort_order: SortOrder = SortOrder.desc,
               skip: int = 0, limit: int = utils.DEFAULT_NUM):
     if limit > utils.MAX_NUM:
         limit = utils.MAX_NUM
+    before_created = dateparser.parse(
+        before_created).timestamp() if before_created else None
+    after_created = dateparser.parse(
+        after_created).timestamp() if after_created else None
     session = scoped_session()
 
     # Select columns except submitted
