@@ -76,7 +76,7 @@ def get_item(id: int = Query(1), verbosity: Verbosity = Verbosity.short):
 
 
 @app.get("/items", response_model=List[ItemResponse],
-         response_model_exclude_none=True, response_model_exclude={"kids", "summary"})
+         response_model_exclude_none=True, response_model_exclude={"kids"})
 def get_items(item_type: ItemType = ItemType.story, query: Optional[str] = Query(None),
               by: Optional[str] = Query(None),
               before_time: Optional[str] = None, after_time: Optional[str] = None,
@@ -144,7 +144,8 @@ def get_items(item_type: ItemType = ItemType.story, query: Optional[str] = Query
     if item_type == ItemType.poll:
         results = utils.get_poll_responses(session, results)
 
-    return results
+    # Add summary for ChatGPT
+    return utils.with_summary(session, results)
 
 
 @app.get("/user", response_model=UserResponse)

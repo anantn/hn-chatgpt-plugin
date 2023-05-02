@@ -98,7 +98,7 @@ def search(url, session, query, by,
         print(log_msg)
         q = session.query(Item).filter(
             Item.id.in_(ids)).order_by(sort_order_expr)
-        return q.offset(skip).limit(limit).all()
+        return with_summary(session, q.offset(skip).limit(limit).all())
 
     # Apply filters if necessary
     query_filters.append(Item.id.in_(ids))
@@ -115,7 +115,7 @@ def search(url, session, query, by,
             filtered_items = filtered_items.order_by(sort_column.desc())
 
     print(f"{log_msg} -> {sort_by}/{len(query_filters)}")
-    return filtered_items.offset(skip).limit(limit).all()
+    return with_summary(session, filtered_items.offset(skip).limit(limit).all())
 
 
 def semantic_search(url, session, query, top_k=50):
@@ -183,6 +183,12 @@ def compute_rankings(session, query, results):
         rankings.append((score_rank, story_id))
 
     return sorted(rankings, reverse=True)
+
+
+def with_summary(session, items):
+    for item in items:
+        item.summary = get_comments_text(session, item.id)
+    return items
 
 
 # Top 5 kid comments, and first child comment of each from the database
