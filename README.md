@@ -12,7 +12,7 @@ The full REST API exposed to ChatGPT is documented [here](https://hn.kix.in/docs
 
 See the section below on how the dataset was created. Once the HN corpus was downloaded into SQLite, I then [created embeddings](embeddings/embed.py) for stories and comments, and indexed them using [Faiss](https://github.com/facebookresearch/faiss/).
 
-The [API server](api-server/main.py) keeps the data updated through Firebase, and updates the embeddings periodically. The API exposes most of the basic functionality you'd expect from a wrapper on a database, but notably, it also supports semantic search through use of the Faiss embeddings index.
+The [embeddings server](embeddings/main.py) keeps the data updated through Firebase, and updates the embeddings periodically. The [API server](api-server/main.py) exposes most of the basic functionality you'd expect from a wrapper on a database, and is the interface ChatGPT interacts with. Notably, the API server supports semantic search through use of the Faiss embeddings index.
 
 This allows ChatGPT to find the right content to analyze and summarize that feels more natural in conversation.
 

@@ -142,10 +142,13 @@ def semantic_search(url, session, query, top_k=50):
 def normalize(values, reverse=False):
     min_val = min(values)
     max_val = max(values)
-    normalized_values = [(value - min_val) / (max_val - min_val)
-                         for value in values]
-    if reverse:
-        normalized_values = [1 - value for value in normalized_values]
+    if max_val == min_val:
+        normalized_values = [0 if reverse else 1] * len(values)
+    else:
+        normalized_values = [(value - min_val) / (max_val - min_val)
+                             for value in values]
+        if reverse:
+            normalized_values = [1 - value for value in normalized_values]
     return normalized_values
 
 

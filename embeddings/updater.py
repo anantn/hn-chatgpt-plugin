@@ -56,7 +56,7 @@ class SyncService:
     async def shutdown(self):
         log("Shutting down SSE channel...")
         self.disconnect = True
-        if self.embed_realtime:
+        if self.embedding_task:
             log("Cancelling embedding updater...")
             try:
                 self.embedding_task.cancel()
