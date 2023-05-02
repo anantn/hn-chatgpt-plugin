@@ -177,7 +177,7 @@ def get_schema(app):
     openapi_schema["paths"]["/item"]["get"]["parameters"][0]["description"] = \
         "ID of the item you want to retrieve."
     openapi_schema["paths"]["/item"]["get"]["parameters"][1]["description"] = \
-        "Set this to control the length of the output. 'short' will return the most relevant children (default), 'full' will retrieve all children (result can get very large), and 'none' will return only the item metadata."
+        "Set this to control the length of the output. Value of 'full' will retrieve all kid comments (default), 'short' will return the most relevant kid comments, and 'none' will return only the item metadata."
 
     openapi_schema["paths"]["/items"]["get"]["summary"] = \
         "Search for items matching a variety of criteria. Items are sorted by their relevance to the query by default."

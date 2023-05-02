@@ -57,7 +57,7 @@ def get_image():
 
 @app.get("/item", response_model=ItemResponse,
          response_model_exclude_none=True)
-def get_item(id: int = Query(1), verbosity: Verbosity = Verbosity.short):
+def get_item(id: int = Query(1), verbosity: Verbosity = Verbosity.full):
     session = scoped_session()
     item_query = session.query(Item).filter(
         Item.id == id)

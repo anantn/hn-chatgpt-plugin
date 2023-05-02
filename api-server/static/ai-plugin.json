@@ -3,7 +3,7 @@
     "name_for_human": "Hacker News",
     "name_for_model": "hacker_news",
     "description_for_human": "Plugin for searching, analyzing, and summarizing insights from the Hacker News community.",
-    "description_for_model": "This is a FastAPI provided over a SQLite table of content from Hacker News, along with semantic search capabilities to find relevant stories and comments.",
+    "description_for_model": "This REST API provides the ability to retrieve stories, comments, polls, and jobs from the Hacker News Community in realtime. The user is most likely looking for you to search for and summarize the discussion and insights found in the comments on this community, which you can obtain through the text content returned by this API. Use the /items endpoint (find_items) to initiate a semantic search for the topics the user is asking about. This endpoint can also be used to filter stories, comments, jobs, and polls by a variety of defined criteria such as score, time of submission, and number of descendant comment. Use the /item endpoint (get_item) to get more detailed text from a single story by retrieving all of its comments, which is useful if the user wants to dive deep on a topic. Use the /users endpoint (find_users) to find users in the hacker news community by id, karma, or account creation date. Use the /user endpoint (get_user) to get more detailed information about a single user, along with their submissions. The IDs in the submitted array can be used in get_item to retrieve the full text of the submission. All dates may be specified in natural language. When responding to the user always include both the hacker news URL (hn_url) and the original URL (url) if available.",
     "auth": {
         "type": "none"
     },
