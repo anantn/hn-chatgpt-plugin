@@ -1,12 +1,10 @@
 import time
+import copy
 import asyncio
 import requests
 
-from sqlalchemy import or_
+from sqlalchemy import case, and_
 from sqlalchemy.sql import text
-from sqlalchemy.orm import noload
-
-from typing import Optional, Union
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
@@ -60,59 +58,72 @@ def initialize_middleware(app):
     return app
 
 
-def get_items(session, item_type: Optional[ItemType] = None,
-              by: Optional[str] = None, before_time: Optional[int] = None, after_time: Optional[int] = None,
-              min_score: Optional[int] = None, max_score: Optional[int] = None,
-              min_comments: Optional[int] = None, max_comments: Optional[int] = None,
-              sort_by: Union[SortBy, None] = None, sort_order: Union[SortOrder, None] = None,
-              skip: int = 0, limit: int = 10, query: Optional[str] = None):
-    if limit > MAX_NUM:
-        limit = MAX_NUM
+def search(url, session, query, by,
+           before_time, after_time, min_score, max_score,
+           min_comments, max_comments, sort_by, sort_order,
+           skip, limit):
+    # Build filters
+    query_filters = []
+    if by:
+        query_filters.append(Item.by == by)
+    if before_time:
+        query_filters.append(Item.time <= before_time)
+    if after_time:
+        query_filters.append(Item.time >= after_time)
+    if min_score:
+        query_filters.append(Item.score >= min_score)
+    if max_score:
+        query_filters.append(Item.score <= max_score)
+    if min_comments:
+        query_filters.append(Item.descendants >= min_comments)
+    if max_comments:
+        query_filters.append(Item.descendants <= max_comments)
 
-    if item_type is not None:
-        item_type = item_type.value
-    items_query = session.query(Item).filter(Item.type == item_type)
-    items_query = items_query.options(noload(Item.kids))
+    # Perform semantic search
+    top_k = 50
+    if len(query_filters) > 0:
+        top_k = 1000
+    results = semantic_search(url, session, query, top_k=top_k)
+    ids = [story_id for _, story_id in results["results"]]
+    sort_order_expr = case(
+        {id_: idx for idx, id_ in enumerate(ids)}, value=Item.id)
 
-    # Filtering
-    if by is not None:
-        items_query = items_query.filter(Item.by == by)
-    if before_time is not None:
-        items_query = items_query.filter(Item.time <= before_time)
-    if after_time is not None:
-        items_query = items_query.filter(Item.time >= after_time)
-    if min_score is not None:
-        items_query = items_query.filter(Item.score >= min_score)
-    if max_score is not None:
-        items_query = items_query.filter(Item.score <= max_score)
-    if min_comments is not None:
-        items_query = items_query.filter(Item.descendants >= min_comments)
-    if max_comments is not None:
-        items_query = items_query.filter(Item.descendants <= max_comments)
-    if query is not None:
-        items_query = items_query.filter(
-            or_(Item.title.contains(query), Item.text.contains(query)))
+    log_msg = f"search({results['search_time']:.3f}) " \
+        f"rank({results['rank_time']:.3f}) " \
+        f"num({top_k} -> {len(results['results'])} -> {limit}): " \
+        f"'{query}'"
 
-    # Sorting
-    if sort_by is not None:
+    # See if we can early return
+    if len(query_filters) == 0 and sort_by == SortBy.relevance:
+        print(log_msg)
+        q = session.query(Item).filter(
+            Item.id.in_(ids)).order_by(sort_order_expr)
+        return q.offset(skip).limit(limit).all()
+
+    # Apply filters if necessary
+    query_filters.append(Item.id.in_(ids))
+    filtered_items = session.query(Item).filter(and_(*query_filters))
+
+    # Sort results
+    if sort_by == SortBy.relevance:
+        filtered_items = filtered_items.order_by(sort_order_expr)
+    else:
         sort_column = getattr(Item, sort_by.value)
         if sort_order == SortOrder.asc:
-            items_query = items_query.order_by(sort_column.asc())
+            filtered_items = filtered_items.order_by(sort_column.asc())
         elif sort_order == SortOrder.desc:
-            items_query = items_query.order_by(sort_column.desc())
+            filtered_items = filtered_items.order_by(sort_column.desc())
 
-    # Limit & skip
-    items_query = items_query.offset(skip).limit(limit)
-    # print(items_query)
-    return items_query.all()
+    print(f"{log_msg} -> {sort_by}/{len(query_filters)}")
+    return filtered_items.offset(skip).limit(limit).all()
 
 
-def semantic_search(url, session, query, skip, limit, exclude_comments):
+def semantic_search(url, session, query, top_k=50):
     query = query.strip()
 
     # Perform semantic search
     start = time.time()
-    req = requests.get(url, params={"query": query})
+    req = requests.get(url, params={"query": query, "top_k": top_k})
     results = req.json()
     search_time = time.time() - start
 
@@ -120,24 +131,12 @@ def semantic_search(url, session, query, skip, limit, exclude_comments):
     start = time.time()
     results = compute_rankings(session, query, results)
     rank_time = time.time() - start
-    print(
-        f"search({search_time:.3f}) rank({rank_time:.3f}) num({len(results)} -> {limit}): '{query}'")
-    results = results[skip:skip+limit]
 
-    # Fetch stories and their comments
-    stories = []
-    for (_, story_id) in results:
-        cursor = session.execute(
-            text(f"SELECT * FROM items WHERE id = {story_id}")).cursor
-        story_row = cursor.fetchone()
-        column_names = [desc[0] for desc in cursor.description]
-        if story_row:
-            story = Item(**dict(zip(column_names, story_row)))
-            if not exclude_comments:
-                story.comment_text = get_comments_text(cursor, story_id)
-            stories.append(story)
-    cursor.close()
-    return stories
+    return {
+        "results": results,
+        "search_time": search_time,
+        "rank_time": rank_time,
+    }
 
 
 def normalize(values, reverse=False):
@@ -169,7 +168,7 @@ def compute_rankings(session, query, results):
     normalized_ages = normalize(ages)
     normalized_distances = normalize(distances, reverse=True)
 
-    w1, w2, w3, w4 = 0.4, 0.4, 0.1, 0.1
+    w1, w2, w3, w4 = 0.3, 0.4, 0.1, 0.2
 
     rankings = []
     for i, (story_id, distance, title, _, _) in enumerate(expanded):
@@ -187,27 +186,52 @@ def compute_rankings(session, query, results):
 
 
 # Top 5 kid comments, and first child comment of each from the database
-def get_comments_text(cursor, story_id):
+# TODO: limit to word count instead of comment count and find smarter way to rank
+def get_comments_text(session, story_id):
     comment_text = []
-    cursor.execute(f"""SELECT i.* FROM items i
+    cursor = session.execute(text(f"""SELECT i.* FROM items i
                     JOIN kids k ON i.id = k.kid
                     WHERE k.item = {story_id} AND i.type = 'comment'
                     ORDER BY k.display_order
-                    LIMIT 5""")
+                    LIMIT 5""")).cursor
     column_names = [desc[0] for desc in cursor.description]
     comments = [Item(**dict(zip(column_names, row)))
                 for row in cursor.fetchall()]
     for comment in comments:
         if comment.text:
             comment_text.append(comment.text)
-            cursor.execute(f"""SELECT i.* FROM items i
+            cursor = session.execute(text(f"""SELECT i.* FROM items i
                             JOIN kids k ON i.id = k.kid
                             WHERE k.item = {comment.id} AND i.type = 'comment'
                             ORDER BY k.display_order
-                            LIMIT 1""")
+                            LIMIT 1""")).cursor
             child_row = cursor.fetchone()
             if child_row:
                 child_comment = Item(**dict(zip(column_names, child_row)))
                 if child_comment.text:
                     comment_text.append(child_comment.text)
     return comment_text
+
+
+# Populate parts with the poll responses
+def get_poll_responses(session, items):
+    poll_responses = []
+    for item in items:
+        working_item = copy.copy(item)
+        if working_item.parts is not None:
+            item_parts = [int(part_id)
+                          for part_id in working_item.parts.split(",")]
+            working_item.parts = None
+            item_pollopts = session.query(Item.id, Item.type, Item.text, Item.score).filter(
+                Item.id.in_(item_parts)).all()
+            parts = []
+            for pollopt in item_pollopts:
+                if pollopt.text and pollopt.score:
+                    parts.append(
+                        {"text": pollopt.text, "score": pollopt.score})
+        else:
+            parts = []
+        poll_response = ItemResponse.from_orm(working_item)
+        poll_response.parts = parts
+        poll_responses.append(poll_response)
+    return poll_responses

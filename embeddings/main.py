@@ -4,7 +4,8 @@ import uvicorn
 import asyncio
 import sqlite3
 
-from fastapi import Query, FastAPI
+from fastapi import FastAPI
+from typing import Optional
 
 import search
 import updater
@@ -20,8 +21,8 @@ encoder, doc_embedder, sync_service, search_index = None, None, None, None
 
 
 @app.get("/search")
-async def search_api(query: str):
-    return await search_index.search(query)
+async def search_api(query: str, top_k: Optional[int] = search.Index.TOP_K):
+    return await search_index.search(query, top_k=top_k)
 
 
 async def main(db_conn, embed_conn):

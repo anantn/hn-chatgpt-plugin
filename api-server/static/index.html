@@ -106,7 +106,7 @@
                 resultsDiv.innerHTML = '';
                 document.getElementById("spinner").style.display = "inline-block";
 
-                const response = await fetch(`/search?query=${query}&limit=10&exclude_comments=true`);
+                const response = await fetch(`/items?query=${query}`);
                 const data = await response.json();
                 displayResults(data);
 

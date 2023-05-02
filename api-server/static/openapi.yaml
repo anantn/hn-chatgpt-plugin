@@ -10,38 +10,29 @@ info:
     name: MIT License
     url: https://opensource.org/license/mit/
 paths:
-  "/search":
+  "/item":
     get:
-      summary: Performs a semantic search on story title, text, and comments and returns matching stories with their comments.
-      operationId: search
+      summary: Retrieve a story, poll, or comment; along with all of their children.
+      operationId: get_item
       parameters:
-      - required: true
+      - required: false
+        schema:
+          type: integer
+          default: 1
+        name: id
+        in: query
+        description: ID of the item you want to retrieve.
+      - required: false
         schema:
           type: string
-        name: query
+          enum:
+            - full
+            - none
+            - short
+          default: short
+        name: verbosity
         in: query
-        description: Query string to search for.
-      - required: false
-        schema:
-          type: integer
-          default: 0
-        name: skip
-        in: query
-        description: "Skip this number of results (useful for paging, default 0)."
-      - required: false
-        schema:
-          type: integer
-          default: 3
-        name: limit
-        in: query
-        description: Limit the number of results returned (default 3, max 3).
-      - required: false
-        schema:
-          type: boolean
-          default: false
-        name: exclude_comments
-        in: query
-        description: Returns results without comment data. If this is set to true, max limit is increased to 20.
+        description: Set this to control the length of the output. 'short' will return the most relevant children (default), 'full' will retrieve all children (result can get very large), and 'none' will return only the item metadata.
       responses:
         '200':
           description: Successful Response
@@ -50,90 +41,91 @@ paths:
               schema:
                 type: array
                 items:
-                  "$ref": "#/components/schemas/Response"
-  "/story":
+                  "$ref": "#/components/schemas/ItemResponse"
+  "/items":
     get:
-      summary: Retrieve a story along with all its comments.
-      operationId: get_story
+      summary: Search for items matching a variety of criteria. Items are sorted by their relevance to the query by default.
+      operationId: find_items
       parameters:
       - required: false
         schema:
-          type: integer
-          default: 1
-        name: id
+          type: string
+          enum:
+            - story
+            - comment
+            - poll
+            - job
+          default: story
+        name: item_type
         in: query
-        description: ID of the story you want to retrieve.
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                "$ref": "#/components/schemas/Response"
-  "/stories":
-    get:
-      summary: Search for stories matching a variety of criteria. Stories are sorted by their score (upvotes) by default.
-      operationId: get_stories
-      parameters:
+        description: Restrict results to this type. Can be 'story' (default), 'comment', 'poll', or 'job'.
+      - required: false
+        schema:
+          type: string
+        name: query
+        in: query
+        description: Perform a semantic search to find all items matching the meaning of this query string.
       - required: false
         schema:
           type: string
         name: by
         in: query
-        description: Find stories submitted by this user.
+        description: Find items created or submitted by this user.
       - required: false
         schema:
           type: integer
         name: before_time
         in: query
-        description: Find stories submitted at or before this UNIX time.
+        description: Find items submitted at or before this time. You can specify the time in natural language.
       - required: false
         schema:
           type: integer
         name: after_time
         in: query
-        description: Find stories submitted at or after this UNIX time. Defaults to last day.
+        description: Find items submitted at or after this time. You can specify the time in natural language.
       - required: false
         schema:
           type: integer
         name: min_score
         in: query
-        description: Find stories with a score at or above this number.
+        description: Find items with a score equal or higher than this number.
       - required: false
         schema:
           type: integer
         name: max_score
         in: query
-        description: Find stories with a score at or below this number.
+        description: Find items with a score equal or lower than this number.
       - required: false
         schema:
           type: integer
         name: min_comments
         in: query
-        description: Find stories with number of comments (descendants) equal to or above this number.
+        description: Find items with a number of comments (descendants) equal or higher than this number.
       - required: false
         schema:
           type: integer
         name: max_comments
         in: query
-        description: Find stories with number of comments (descendants) equal to or below this number.
+        description: Find items with a number of comments (descendants) or lower than this number.
       - required: false
         schema:
           type: string
           enum:
+            - relevance
             - score
             - time
             - descendants
-          default: score
+          default: relevance
         name: sort_by
         in: query
-        description: Sort results by score (upvotes, default), descendants (number of comments), time (of submission).
+        description: Sort results by query relevance (default), score (upvotes), descendants (number of comments), or time of submission.
       - required: false
         schema:
           type: string
           enum:
             - asc
             - desc
+          default: desc
         name: sort_order
         in: query
         description: Sort results in descending (default) or ascending order of the sort_by parameter.
@@ -147,7 +139,7 @@ paths:
       - required: false
         schema:
           type: integer
-          default: 50
+          default: 10
         name: limit
         in: query
         description: Limit the number of results returned (default 10, max 50).
@@ -159,145 +151,7 @@ paths:
               schema:
                 type: array
                 items:
-                  "$ref": "#/components/schemas/Response"
-  "/comment":
-    get:
-      summary: Retrieve a comment along with all its replies.
-      operationId: get_comment
-      parameters:
-      - required: false
-        schema:
-          type: integer
-          default: 1
-        name: id
-        in: query
-        description: ID of the comment you want to retrieve.
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                "$ref": "#/components/schemas/Response"
-  "/comments":
-    get:
-      summary: Find comments matching a variety of criteria. Comments are sorted by the most recent ones by default.
-      operationId: get_comments
-      parameters:
-      - required: false
-        schema:
-          type: string
-        name: by
-        in: query
-      - required: false
-        schema:
-          type: integer
-        name: before_time
-        in: query
-      - required: false
-        schema:
-          type: integer
-        name: after_time
-        in: query
-      - required: false
-        schema:
-          type: string
-          enum:
-            - score
-            - time
-            - descendants
-          default: time
-        name: sort_by
-        in: query
-        description: Sort results by score (upvotes), descendants (number of comments), time (of submission, default).
-      - required: false
-        schema:
-          type: string
-          enum:
-            - asc
-            - desc
-        name: sort_order
-        in: query
-      - required: false
-        schema:
-          type: integer
-          default: 0
-        name: skip
-        in: query
-      - required: false
-        schema:
-          type: integer
-          default: 10
-        name: limit
-        in: query
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  "$ref": "#/components/schemas/Response"
-  "/polls":
-    get:
-      summary: Find polls matching a variety of criteria. Polls are sorted by their score (upvotes) by default.
-      operationId: get_polls
-      parameters:
-      - required: false
-        schema:
-          type: string
-        name: by
-        in: query
-      - required: false
-        schema:
-          type: integer
-        name: before_time
-        in: query
-      - required: false
-        schema:
-          type: integer
-        name: after_time
-        in: query
-      - required: false
-        schema:
-          type: string
-          enum:
-            - score
-            - time
-            - descendants
-          default: score
-        name: sort_by
-        in: query
-      - required: false
-        schema:
-          type: string
-          enum:
-            - asc
-            - desc
-        name: sort_order
-        in: query
-      - required: false
-        schema:
-          type: integer
-          default: 0
-        name: skip
-        in: query
-      - required: false
-        schema:
-          type: integer
-          default: 10
-        name: limit
-        in: query
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  "$ref": "#/components/schemas/Response"
+                  "$ref": "#/components/schemas/ItemResponse"
   "/user":
     get:
       summary: Retrieve a user along with all their submissions (story, comment, or poll IDs).
@@ -320,41 +174,39 @@ paths:
   "/users":
     get:
       summary: Find users matching a variety of criteria. Users are sorted by their karma (upvotes) by default.
-      operationId: get_users
+      operationId: find_users
       parameters:
-      - required: false
-        schema:
-          type: array
-          items:
-            type: string
-        name: ids
-        in: query
       - required: false
         schema:
           type: integer
         name: before_created
         in: query
+        description: Find users created at or before this UNIX time.
       - required: false
         schema:
           type: integer
         name: after_created
         in: query
+        description: Find users created at or after this UNIX time.
       - required: false
         schema:
           type: integer
         name: min_karma
         in: query
+        description: Find users with karma at or above this number.
       - required: false
         schema:
           type: integer
         name: max_karma
         in: query
+        description: Find users with karma at or below this number.
       - required: false
         schema:
           type: string
           enum:
             - created
             - karma
+          default: karma
         name: sort_by
         in: query
         description: Sort results by karma (default), or created (account creation time).
@@ -364,6 +216,7 @@ paths:
           enum:
             - asc
             - desc
+          default: desc
         name: sort_order
         in: query
       - required: false
@@ -389,7 +242,7 @@ paths:
                   "$ref": "#/components/schemas/UserResponse"
 components:
   schemas:
-    Response:
+    ItemResponse:
       required:
       - id
       - type
@@ -399,21 +252,21 @@ components:
           type: integer
         type:
           type: string
-        text:
+        by:
           type: string
         time:
           type: integer
-        by:
-          type: string
-        hn_url:
-          type: string
-        title:
+        text:
           type: string
         url:
           type: string
         score:
           type: integer
+        title:
+          type: string
         descendants:
+          type: integer
+        parent:
           type: integer
         kids:
           type: array
@@ -423,6 +276,12 @@ components:
           type: array
           items:
             type: object
+        summary:
+          type: array
+          items:
+            type: string
+        hn_url:
+          type: string
     UserResponse:
       required:
       - id

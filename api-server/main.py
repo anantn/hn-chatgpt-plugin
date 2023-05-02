@@ -8,8 +8,8 @@ from requests.exceptions import HTTPError
 from fastapi import Query, FastAPI, HTTPException
 from starlette.responses import FileResponse
 
-from sqlalchemy import select, create_engine
-from sqlalchemy.orm import sessionmaker, scoped_session
+from sqlalchemy import or_, select, create_engine
+from sqlalchemy.orm import sessionmaker, scoped_session, noload
 from typing import List, Optional
 
 import utils
@@ -55,90 +55,92 @@ def get_image():
     return FileResponse("static/index.html")
 
 
-@app.get("/search", response_model=List[StoryResponse])
-def search_stories(query: str, skip: int = 0, limit: int = 3, exclude_comments: bool = False):
-    if limit > 3:
-        if exclude_comments:
-            if limit > 20:
-                limit = 20
-        else:
-            limit = 3
+@app.get("/item", response_model=ItemResponse,
+         response_model_exclude_none=True)
+def get_item(id: int = Query(1), verbosity: Verbosity = Verbosity.short):
     session = scoped_session()
-    return utils.semantic_search(DATA_SERVER, session, query, skip, limit, exclude_comments)
+    item_query = session.query(Item).filter(
+        Item.id == id)
+
+    if verbosity == Verbosity.short or verbosity == Verbosity.none:
+        item_query = item_query.options(noload(Item.kids))
+
+    item = item_query.first()
+    if item is None:
+        raise HTTPException(status_code=404, detail="Item not found")
+
+    if verbosity == Verbosity.short:
+        item.summary = utils.get_comments_text(session, item.id)
+
+    return item
 
 
-@app.get("/story", response_model=StoryResponse)
-def get_story(id: int = Query(1)):
-    session = scoped_session()
-    story = session.query(Item).filter(
-        Item.type == ItemType.story.value).filter(Item.id == id).first()
-    if story is None:
-        raise HTTPException(status_code=404, detail="Story not found")
-    return story
-
-
-@app.get("/stories", response_model=List[StoryResponse])
-def get_stories(by: Optional[str] = Query(None),
-                before_time: Optional[int] = None, after_time: Optional[int] = None,
-                min_score: Optional[int] = None, max_score: Optional[int] = None,
-                min_comments: Optional[int] = None, max_comments: Optional[int] = None,
-                sort_by: SortBy = SortBy.score, sort_order: SortOrder = SortOrder.desc,
-                skip: int = 0, limit: int = utils.DEFAULT_NUM):
-    session = scoped_session()
-    return utils.get_items(session, item_type=ItemType.story, by=by, before_time=before_time, after_time=after_time,
-                           min_score=min_score, max_score=max_score, min_comments=min_comments, max_comments=max_comments,
-                           sort_by=sort_by, sort_order=sort_order, skip=skip, limit=limit)
-
-
-@app.get("/comment", response_model=CommentResponse)
-def get_comment(id: int = Query(1)):
-    session = scoped_session()
-    comment = session.query(Item).filter(
-        Item.type == ItemType.comment.value).filter(Item.id == id).first()
-    if comment is None:
-        raise HTTPException(status_code=404, detail="Comment not found")
-    return comment
-
-
-@app.get("/comments", response_model=List[CommentResponse])
-def get_comments(by: Optional[str] = Query(None),
-                 before_time: Optional[int] = None, after_time: Optional[int] = None,
-                 sort_by: SortBy = SortBy.time, sort_order: SortOrder = SortOrder.desc,
-                 skip: int = 0, limit: int = utils.DEFAULT_NUM):
-    session = scoped_session()
-    return utils.get_items(session, item_type=ItemType.comment, by=by, before_time=before_time, after_time=after_time,
-                           sort_by=sort_by, sort_order=sort_order, skip=skip, limit=limit)
-
-
-@app.get("/polls", response_model=List[PollResponse])
-def get_polls(by: Optional[str] = Query(None),
+@app.get("/items", response_model=List[ItemResponse],
+         response_model_exclude_none=True, response_model_exclude={"kids", "summary"})
+def get_items(item_type: ItemType = ItemType.story, query: Optional[str] = Query(None),
+              by: Optional[str] = Query(None),
               before_time: Optional[int] = None, after_time: Optional[int] = None,
-              sort_by: SortBy = SortBy.score, sort_order: SortOrder = SortOrder.desc,
-              skip: int = 0, limit: int = utils.DEFAULT_NUM, query: Optional[str] = None):
+              min_score: Optional[int] = None, max_score: Optional[int] = None,
+              min_comments: Optional[int] = None, max_comments: Optional[int] = None,
+              sort_by: SortBy = SortBy.relevance, sort_order: SortOrder = SortOrder.desc,
+              skip: int = 0, limit: int = utils.DEFAULT_NUM):
+    if limit > utils.MAX_NUM:
+        limit = utils.MAX_NUM
     session = scoped_session()
-    items = utils.get_items(session, item_type=ItemType.poll, by=by, before_time=before_time, after_time=after_time,
-                            sort_by=sort_by, sort_order=sort_order, skip=skip, limit=limit, query=query)
-    if len(items) == 0:
-        return []
 
-    session = scoped_session()
-    poll_responses = []
-    for item in items:
-        working_item = copy.copy(item)
-        if working_item.parts is not None:
-            item_parts = [int(part_id)
-                          for part_id in working_item.parts.split(",")]
-            working_item.parts = None
-            item_pollopts = session.query(Item).filter(
-                Item.id.in_(item_parts)).all()
-            parts = [PollResponse.from_orm(pollopt)
-                     for pollopt in item_pollopts]
-        else:
-            parts = []
-        poll_response = PollResponse.from_orm(working_item)
-        poll_response.parts = parts
-        poll_responses.append(poll_response)
-    return poll_responses
+    # If query is not empty and type is story or comments, go the semantic search route
+    if query is not None and item_type in [ItemType.story, ItemType.comment]:
+        return utils.search(DATA_SERVER, session, query, by,
+                            before_time, after_time, min_score, max_score,
+                            min_comments, max_comments, sort_by, sort_order,
+                            skip, limit)
+
+    # Set type and don't load any children by default
+    items_query = session.query(Item)
+    if item_type is not None:
+        items_query = items_query.filter(Item.type == item_type.value)
+    items_query = items_query.options(noload(Item.kids))
+
+    # Filtering
+    if by is not None:
+        items_query = items_query.filter(Item.by == by)
+    if before_time is not None:
+        items_query = items_query.filter(Item.time <= before_time)
+    if after_time is not None:
+        items_query = items_query.filter(Item.time >= after_time)
+    if min_score is not None:
+        items_query = items_query.filter(Item.score >= min_score)
+    if max_score is not None:
+        items_query = items_query.filter(Item.score <= max_score)
+    if min_comments is not None:
+        items_query = items_query.filter(Item.descendants >= min_comments)
+    if max_comments is not None:
+        items_query = items_query.filter(Item.descendants <= max_comments)
+
+    # If query is set but type is not 'poll' or 'job', let's do a semantic search fist
+    if query is not None:
+        items_query = items_query.filter(
+            or_(Item.title.contains(query), Item.text.contains(query)))
+
+    # Sorting
+    if sort_by is not None:
+        if sort_by == SortBy.relevance:
+            sort_by = SortBy.score
+        sort_column = getattr(Item, sort_by.value)
+        if sort_order == SortOrder.asc:
+            items_query = items_query.order_by(sort_column.asc())
+        elif sort_order == SortOrder.desc:
+            items_query = items_query.order_by(sort_column.desc())
+
+    # Limit & skip
+    items_query = items_query.offset(skip).limit(limit)
+    # print(items_query)
+    results = items_query.all()
+    # If item_type was poll, also add pollopts
+    if item_type == ItemType.poll:
+        results = utils.get_poll_responses(session, results)
+
+    return results
 
 
 @app.get("/user", response_model=UserResponse)
