@@ -9,10 +9,12 @@ from fastapi import Query, FastAPI, HTTPException
 from starlette.responses import FileResponse
 
 from sqlalchemy import or_, select, create_engine
-from sqlalchemy.orm import sessionmaker, scoped_session, noload, load_only
+from sqlalchemy.orm import sessionmaker, scoped_session, load_only
 from typing import List, Optional
+from fastapi.encoders import jsonable_encoder
 
 import utils
+from search import search
 from schema import *
 
 # Database connection
@@ -55,15 +57,15 @@ def get_image():
     return FileResponse("static/index.html")
 
 
-@app.get("/item", response_model=ItemResponse,
+@app.get("/item", response_model=FullItemResponse,
          response_model_exclude_none=True)
 def get_item(id: int = Query(1), verbosity: Verbosity = Verbosity.full):
     session = scoped_session()
-    item_query = session.query(Item).filter(
-        Item.id == id)
 
-    if verbosity == Verbosity.short or verbosity == Verbosity.none:
-        item_query = item_query.options(noload(Item.kids))
+    if verbosity == Verbosity.full:
+        item_query = session.query(FullItem).filter(FullItem.id == id)
+    else:
+        item_query = session.query(Item).filter(Item.id == id)
 
     item = item_query.first()
     if item is None:
@@ -76,7 +78,7 @@ def get_item(id: int = Query(1), verbosity: Verbosity = Verbosity.full):
 
 
 @app.get("/items", response_model=List[ItemResponse],
-         response_model_exclude_none=True, response_model_exclude={"kids"})
+         response_model_exclude_none=True)
 def get_items(item_type: ItemType = ItemType.story, query: Optional[str] = Query(None),
               exclude_text: Optional[bool] = False, by: Optional[str] = Query(None),
               before_time: Optional[str] = None, after_time: Optional[str] = None,
@@ -94,10 +96,10 @@ def get_items(item_type: ItemType = ItemType.story, query: Optional[str] = Query
 
     # If query is not empty and type is story or comments, go the semantic search route
     if query is not None and item_type in [ItemType.story, ItemType.comment]:
-        return utils.search(DATA_SERVER, session, query, exclude_text, by,
-                            before_time, after_time, min_score, max_score,
-                            min_comments, max_comments, sort_by, sort_order,
-                            skip, limit)
+        return jsonable_encoder(search(DATA_SERVER, session, query, exclude_text, by,
+                                       before_time, after_time, min_score, max_score,
+                                       min_comments, max_comments, sort_by, sort_order,
+                                       skip, limit))
 
     # Set type and don't load any children by default
     items_query = session.query(Item)
@@ -108,7 +110,6 @@ def get_items(item_type: ItemType = ItemType.story, query: Optional[str] = Query
         items_query = items_query.options(load_only(*fields))
     if item_type is not None:
         items_query = items_query.filter(Item.type == item_type.value)
-    items_query = items_query.options(noload(Item.kids))
 
     # Filtering
     if by is not None:
@@ -126,7 +127,7 @@ def get_items(item_type: ItemType = ItemType.story, query: Optional[str] = Query
     if max_comments is not None:
         items_query = items_query.filter(Item.descendants <= max_comments)
 
-    # If query is set but type is not 'poll' or 'job', let's do a semantic search fist
+    # If query is set but type is 'poll' or 'job', just use contains
     if query is not None:
         items_query = items_query.filter(
             or_(Item.title.contains(query), Item.text.contains(query)))
@@ -143,7 +144,6 @@ def get_items(item_type: ItemType = ItemType.story, query: Optional[str] = Query
 
     # Limit & skip
     items_query = items_query.offset(skip).limit(limit)
-    # print(items_query)
     results = items_query.all()
     # If item_type was poll, also add pollopts
     if item_type == ItemType.poll:
@@ -151,8 +151,8 @@ def get_items(item_type: ItemType = ItemType.story, query: Optional[str] = Query
 
     # Add summary for ChatGPT
     if exclude_text:
-        return results
-    return utils.with_summary(session, results)
+        return jsonable_encoder(results)
+    return jsonable_encoder(utils.with_summary(session, results))
 
 
 @app.get("/user", response_model=UserResponse)

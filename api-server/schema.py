@@ -8,7 +8,6 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
 from pydantic import BaseModel, Field, validator
 from fastapi.openapi.utils import get_openapi
-from fastapi.encoders import jsonable_encoder
 
 # Define SQLAlchemy models
 Base = declarative_base()
@@ -44,15 +43,6 @@ class Verbosity(enum.Enum):
     short = 'short'
 
 
-story_comments = Table(
-    "kids",
-    Base.metadata,
-    Column("item", Integer, ForeignKey("items.id")),
-    Column("kid", Integer, ForeignKey("items.id")),
-    Column("display_order", Integer)
-)
-
-
 class Item(Base):
     __tablename__ = "items"
     id = Column(Integer, primary_key=True)
@@ -69,10 +59,6 @@ class Item(Base):
     title = Column(String)
     parts = Column(String)
     descendants = Column(Integer)
-    kids = relationship("Item", secondary=story_comments,
-                        primaryjoin=id == story_comments.c.item,
-                        secondaryjoin=id == story_comments.c.kid,
-                        order_by=story_comments.c.display_order)
 
 
 class User(Base):
@@ -83,6 +69,22 @@ class User(Base):
     about = Column(String)
     submitted = Column(String)
 
+
+story_comments = Table(
+    "kids",
+    Base.metadata,
+    Column("item", Integer, ForeignKey("items.id")),
+    Column("kid", Integer, ForeignKey("items.id")),
+    Column("display_order", Integer)
+)
+
+
+class FullItem(Item):
+    kids = relationship("FullItem", secondary=story_comments,
+                        primaryjoin=Item.id == story_comments.c.item,
+                        secondaryjoin=Item.id == story_comments.c.kid,
+                        order_by=story_comments.c.display_order)
+
 # Define Pydantic models for API responses
 
 
@@ -90,7 +92,7 @@ class ItemResponse(BaseModel):
     id: int
     type: str
     by: Optional[str] = None
-    time: Optional[int] = None
+    time: Optional[str] = None
     text: Optional[str] = None
     url: Optional[str] = None
     score: Optional[int] = 0
@@ -98,14 +100,10 @@ class ItemResponse(BaseModel):
     descendants: Optional[int] = 0
 
     parent: Optional[int] = None
-    kids: Optional[List['ItemResponse']] = []
     summary: Optional[List[str]] = []
 
     parts: Optional[List[dict]] = None
     hn_url: Optional[str] = Field(None)
-
-    class Config:
-        orm_mode = True
 
     @validator("hn_url", pre=True, always=True)
     def set_hn_url(cls, v, values):
@@ -114,17 +112,23 @@ class ItemResponse(BaseModel):
             return f"https://news.ycombinator.com/item?id={id}"
         return v
 
-    @validator("time", pre=True, always=True)
-    def set_time(cls, v, values):
-        time = values.get("time")
-        if time:
-            return datetime.datetime.fromtimestamp(time).strftime("%b %d, %Y %H:%M")
-        return v
+    @validator("time", pre=True)
+    def set_time(cls, value: Optional[int]) -> Optional[str]:
+        if value is not None:
+            return datetime.datetime.fromtimestamp(value).strftime("%b %d, %Y %H:%M")
+        return value
+
+
+class FullItemResponse(ItemResponse):
+    kids: Optional[List['FullItemResponse']] = []
+
+    class Config:
+        orm_mode = True
 
 
 class UserResponse(BaseModel):
     id: str
-    created: int
+    created: str
     karma: int
     about: Optional[str] = None
     submitted: Optional[List[int]] = None
@@ -139,6 +143,12 @@ class UserResponse(BaseModel):
         if id:
             return f"https://news.ycombinator.com/user?id={id}"
         return v
+
+    @validator("created", pre=True)
+    def set_created(cls, value: int) -> str:
+        if value is not None:
+            return datetime.datetime.fromtimestamp(value).strftime("%b %d, %Y %H:%M")
+        return value
 
     @validator("submitted", pre=True)
     def parse_submitted(cls, value: Optional[str]) -> Optional[List[int]]:
