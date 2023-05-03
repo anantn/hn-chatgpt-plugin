@@ -139,10 +139,10 @@ class DocumentEmbedder:
                     (story["id"], part_index, document_part))
                 if len(story_batch) == batch_size:
                     await self.process_batch(story_batch)
-                    if progress:
+                    if progress != None:
                         progress.update(len(story_batch))
                     story_batch = []
-            if doc_progress:
+            if doc_progress != None:
                 doc_progress.update()
 
         # Process the remaining stories in the batch
