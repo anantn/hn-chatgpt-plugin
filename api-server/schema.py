@@ -186,26 +186,28 @@ def get_schema(app):
     openapi_schema["paths"]["/items"]["get"]["parameters"][1]["description"] = \
         "Perform a semantic search to find all items matching the meaning of this query string."
     openapi_schema["paths"]["/items"]["get"]["parameters"][2]["description"] = \
-        "Find items created or submitted by this user."
+        "Includes a small selection of child comments from the Item if set to true."
     openapi_schema["paths"]["/items"]["get"]["parameters"][3]["description"] = \
-        "Find items submitted at or before this time. You may specify the time in natural language."
+        "Find items created or submitted by this user."
     openapi_schema["paths"]["/items"]["get"]["parameters"][4]["description"] = \
-        "Find items submitted at or after this time. You may specify the time in natural language."
+        "Find items submitted at or before this time. You may specify the time in natural language."
     openapi_schema["paths"]["/items"]["get"]["parameters"][5]["description"] = \
-        "Find items with a score equal or higher than this number."
+        "Find items submitted at or after this time. You may specify the time in natural language."
     openapi_schema["paths"]["/items"]["get"]["parameters"][6]["description"] = \
-        "Find items with a score equal or lower than this number."
+        "Find items with a score equal or higher than this number."
     openapi_schema["paths"]["/items"]["get"]["parameters"][7]["description"] = \
-        "Find items with a number of comments (descendants) equal or higher than this number."
+        "Find items with a score equal or lower than this number."
     openapi_schema["paths"]["/items"]["get"]["parameters"][8]["description"] = \
-        "Find items with a number of comments (descendants) or lower than this number."
+        "Find items with a number of comments (descendants) equal or higher than this number."
     openapi_schema["paths"]["/items"]["get"]["parameters"][9]["description"] = \
-        "Sort results by relevance (default), score (upvotes), descendants (number of comments), time (of submission)."
+        "Find items with a number of comments (descendants) or lower than this number."
     openapi_schema["paths"]["/items"]["get"]["parameters"][10]["description"] = \
-        "Sort results in descending (default) or ascending order of the sort_by parameter."
+        "Sort results by relevance (default), score (upvotes), descendants (number of comments), time (of submission)."
     openapi_schema["paths"]["/items"]["get"]["parameters"][11]["description"] = \
-        "Offset the results returned, use to page through multiple results."
+        "Sort results in descending (default) or ascending order of the sort_by parameter."
     openapi_schema["paths"]["/items"]["get"]["parameters"][12]["description"] = \
+        "Offset the results returned, use to page through multiple results."
+    openapi_schema["paths"]["/items"]["get"]["parameters"][13]["description"] = \
         "Limit the number of results returned (default 10, max 50)."
 
     openapi_schema["paths"]["/user"]["get"]["summary"] = \

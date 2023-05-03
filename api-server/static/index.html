@@ -167,18 +167,22 @@
         <div id="placeholder-text">
             <p>
                 This is a demo of the semantic search index built to serve as the backend for the Hacker
-                News ChatGPT plugin. Semantic search performs better at finding results for longer natural
-                language queries.
+                News ChatGPT plugin. Semantic search performs better than traditional information retrieval
+                techniques &mdash; such as keyword search &mdash; at finding results for longer natural
+                language queries. Conversely, it struggles at finding exact name matches.
             </p>
             <p>
                 Try the following queries, and note that this demo will only retrieve relevant articles but
-                not answer the question &mdash; that task is left to a large language model like GPT.
+                not answer the question &mdash; that task is left to a large language model like GPT. If you
+                have ChatGPT plugin access, feel free to try the full integration out by adding 'hn.kix.in'
+                as an unverified plugin!
             </p>
             <ul id="example-queries">
                 <li><a href="#">what is the best laptop for programming?</a></li>
                 <li><a href="#">what is aloo biryani?</a></li>
                 <li><a href="#">what companies have been acquired by mozilla?</a></li>
                 <li><a href="#">how do I get a job at facebook?</a></li>
+                <li><a href="#">what's it like working at a startup?</a></li>
             </ul>
         </div>
         `
@@ -225,7 +229,7 @@
 
                 // Do the search
                 const startTime = performance.now();
-                const response = await fetch(`/items?query=${query}`);
+                const response = await fetch(`/items?query=${query}&include_summary=false`);
                 const endTime = performance.now();
                 const searchTime = (endTime - startTime) / 1000;
 

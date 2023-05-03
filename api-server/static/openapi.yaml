@@ -67,6 +67,13 @@ paths:
         description: Perform a semantic search to find all items matching the meaning of this query string.
       - required: false
         schema:
+          type: boolean
+          default: true
+        name: include_summary
+        in: query
+        description: Includes a small selection of child comments from the Item if set to true.
+      - required: false
+        schema:
           type: string
         name: by
         in: query

@@ -4,7 +4,7 @@ This is a ChatGPT plugin to query, analyze, and summarize insights from the [Hac
 
 ## Demo
 
-If you have ChatGPT plugins access, just add this as an unverified plugin using the URL: https://hn.kix.in/
+If you have access to [ChatGPT plugins](https://openai.com/blog/chatgpt-plugins), just add this as an unverified plugin using the URL: https://hn.kix.in/
 
 If you don't have plugins access, you can try out the basic [semantic search demo on this page](https://hn.kix.in/).
 
@@ -22,6 +22,50 @@ The [embeddings server](embeddings/main.py) keeps the data updated through the [
 
 This allows ChatGPT to find the right content to analyze and summarize that feels more natural in conversation.
 
+## Running locally
+
+You'll need atleast 30G of free disk space and >20G RAM. An nVidia GPU is highly recommended, embedding generation on CPU is painfully slow.
+
+Clone the repo and install pre-requisites.
+
+```bash
+$ git clone https://github.com/anantn/hn-chatgpt-plugin.git
+$ cd hn-chatgpt-plugin/api-server
+$ pip install -r requirements.txt
+$ cd ../embeddings
+$ pip install -r requirements.txt
+
+# Install zstd with your favorite package manager (brew, apt, etc)
+$ sudo apt install zstd
+```
+
+Grab the datasets [from HuggingFace](https://huggingface.co/datasets/anantn/hacker-news/tree/main) and decompress them:
+
+```bash
+$ wget https://huggingface.co/datasets/anantn/hacker-news/resolve/main/hn-sqlite-20230429.db.zst
+$ pzstd -d hn-sqlite-20230429.db.zst
+
+$ wget https://huggingface.co/datasets/anantn/hacker-news/resolve/main/hn-sqlite-20230429_embeddings.db.zst
+$ pzstd -d hn-sqlite-20230429_embeddings.db.zst
+```
+
+Run the embedding server first. The embedding server will by default try to "catch up" on all the latest data changes since the snapshot was generated. You can disable all data updates (recommended for your first run):
+
+```bash
+$ DB_PATH=hn-sqlite-20230429.db OPTS=nosync,noembed,noembedrt python main.py
+```
+
+If you want to generate embeddings and keep your local SQLite database up to date, just run `main.py` with no `OPTS` environment variable.
+
+Once the embedding server is running, start the API server:
+
+```bash
+$ cd hn-chatgpt-plugin/api-server
+$ DB_PATH=hn-sqlite-20230429.db python main.py
+```
+
+Fire up `localhost:8000` in your browser!
+
 ## Dataset
 
 As of early April 2023, Hacker News contained 35,663,259 items of content (story submissions, comments, and polls), and 859,467 unique users.
@@ -37,7 +81,7 @@ I tried a bunch of different methods to maximize download throughput: [python](h
 * [fetch-users.js](hn-to-sqlite/node/fetch-users.js) is a script to fetch user data profiles, can be done on a single machine.
 * [merge.py](hn-to-sqlite/python/merge.py) can be used to merge each partition into a single sqlite file.
 
-The final output is a sqlite file that's ~25GB. It compressed down to ~5GB with zstd which is the version hosted on HuggingFace. This includes indexes on some common fields, if you want to reduce the size further you can always `DROP INDEX`.
+The final output is a sqlite file that's ~30GB. It compressed down to ~6GB with zstd which is the version hosted on HuggingFace. This includes indexes on some common fields, if you want to reduce the size further you can always `DROP INDEX`.
 
 Decompressing it should take less than a minute on a good computer with an SSD:
 
@@ -65,4 +109,4 @@ ChatGPT seems to hallucinate some parameters to the API, particularly the `sortB
 
 ## Datasette Plugin
 
-[Datasette](https://datasette.io/) exposes a REST API to any SQLite database. I experimented with using it to interace with ChatGPT. You can try it in the same way as the algolia plugin.
+[Datasette](https://datasette.io/) exposes a REST API to any SQLite database. I [experimented with](datasette/) using it to interace with ChatGPT. You can try it in the same way as the algolia plugin.

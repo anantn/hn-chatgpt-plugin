@@ -78,7 +78,7 @@ def get_item(id: int = Query(1), verbosity: Verbosity = Verbosity.full):
 @app.get("/items", response_model=List[ItemResponse],
          response_model_exclude_none=True, response_model_exclude={"kids"})
 def get_items(item_type: ItemType = ItemType.story, query: Optional[str] = Query(None),
-              by: Optional[str] = Query(None),
+              include_summary: Optional[bool] = True, by: Optional[str] = Query(None),
               before_time: Optional[str] = None, after_time: Optional[str] = None,
               min_score: Optional[int] = None, max_score: Optional[int] = None,
               min_comments: Optional[int] = None, max_comments: Optional[int] = None,
