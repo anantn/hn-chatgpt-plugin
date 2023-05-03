@@ -136,6 +136,8 @@
             cursor: pointer;
         }
     </style>
+    <script defer data-domain="hn.kix.in" data-api="https://data.kix.in/api/event"
+        src="https://kix.in/js/data.js"></script>
 </head>
 
 <body>
@@ -163,31 +165,48 @@
 
     </footer>
     <script>
-        const placeholderText = `
+        const sampleQuestions = [
+            "best laptop for coding that isn't from apple",
+            "who was acquired by mozilla",
+            "how can i land a job at faang?",
+            "help me find true love",
+            "what's it like working at an early stage startup",
+            "top data science tools i should learn",
+            "interesting articles about astronomy",
+            "latest breakthroughs in battery technology",
+            "how do i become a great manager?",
+            "does god exist"
+        ]
+        var placeholderText = `
         <div id="placeholder-text">
             <p>
-                This is a demo of the semantic search index built to serve as the backend for the Hacker
-                News ChatGPT plugin. Semantic search performs better than traditional information retrieval
-                techniques &mdash; such as keyword search &mdash; at finding results for longer natural
-                language queries. Conversely, it struggles at finding exact name matches.
+                This is a demo of the simple semantic search index built to serve as the backend for the Hacker
+                News ChatGPT plugin. While the demo isn't as powerful as the real integration with ChatGPT, it gives you
+                a taste of the ability of embeddings to find documents most relevant to a given natural language query.
+            <p>
+                Semantic search performs better at finding results for longer natural language queries, compared
+                to more traditional information retrieval techniques (such as
+                <a href="https://hn.algolia.com">keyword search</a>). Conversely, it struggles
+                with finding exact name matches and with very short queries (<5 words).
             </p>
             <p>
-                Try the following queries, and note that this demo will only retrieve relevant articles but
-                not answer the question &mdash; that task is left to a large language model like GPT. If you
-                have ChatGPT plugin access, feel free to try the full integration out by adding 'hn.kix.in'
-                as an unverified plugin!
+                Note that this demo will only retrieve top 10 relevant articles but not answer the question &mdash;
+                that task is left to a large language model like GPT. You can use the API directly for a higher limit
+                and more control over filters and sorting.
             </p>
             <ul id="example-queries">
-                <li><a href="#">what is the best laptop for programming?</a></li>
-                <li><a href="#">what is aloo biryani?</a></li>
-                <li><a href="#">what companies have been acquired by mozilla?</a></li>
-                <li><a href="#">how do I get a job at facebook?</a></li>
-                <li><a href="#">what's it like working at a startup?</a></li>
+                {questions}
             </ul>
         </div>
         `
+        var sampleQuestionsHTML = "";
+        for (var i in sampleQuestions) {
+            sampleQuestionsHTML += `<li><a href="#">${sampleQuestions[i]}</a></li>`;
+        }
+        placeholderText = placeholderText.replace("{questions}", sampleQuestionsHTML);
 
         function attachExampleQueries() {
+            document.getElementById("results").innerHTML = placeholderText;
             document.querySelectorAll("#example-queries a").forEach((exampleQueryLink) => {
                 exampleQueryLink.addEventListener("click", (event) => {
                     event.preventDefault();
@@ -197,7 +216,6 @@
                 });
             });
         }
-        document.getElementById("results").innerHTML = placeholderText;
         attachExampleQueries();
 
         function handleEnterKey(event) {
@@ -209,7 +227,6 @@
         function clearSearch() {
             document.getElementById("search-input").value = "";
             document.getElementById("results-summary").innerHTML = "";
-            document.getElementById("results").innerHTML = placeholderText;
             attachExampleQueries();
         }
 
@@ -253,7 +270,7 @@
 
         function timeDifference(story) {
             const currentDate = new Date();
-            const storyDate = new Date(story.time * 1000);
+            const storyDate = new Date(story.time);
             const timeDifference = Math.abs(currentDate - storyDate);
             const timeDifferenceHours = Math.ceil(timeDifference / (1000 * 60 * 60));
             const timeDifferenceDays = Math.ceil(timeDifferenceHours / 24);

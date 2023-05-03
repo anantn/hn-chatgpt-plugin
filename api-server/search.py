@@ -146,7 +146,7 @@ def compute_rankings(session, query, results):
     normalized_ages = normalize(ages)
     normalized_distances = normalize(distances, reverse=True)
 
-    w1, w2, w3, w4, w5 = 0.25, 0.35, 0.1, 0.15, 0.15
+    w1, w2, w3, w4 = 0.2, 0.25, 0.35, 0.2
 
     def calculate_topicality(query_words, title_words):
         topicality = 0
@@ -160,15 +160,12 @@ def compute_rankings(session, query, results):
     for i, (story_id, distance, title, _, _) in enumerate(expanded):
         query_words = set(word.lower() for word in query.split())
         title_words = [word.lower() for word in title.split()]
-        matches = len(query_words.intersection(set(title_words)))
-
         topicality = calculate_topicality(query_words, title_words)
 
         score_rank = w1 * normalized_scores[i] \
             + w2 * normalized_distances[i] \
             + w3 * normalized_ages[i] \
-            + w4 * matches \
-            + w5 * topicality
+            + w4 * topicality
         rankings.append((score_rank, story_id))
 
     return sorted(rankings, reverse=True)
