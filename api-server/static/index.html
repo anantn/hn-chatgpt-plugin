@@ -229,7 +229,7 @@
 
                 // Do the search
                 const startTime = performance.now();
-                const response = await fetch(`/items?query=${query}&include_summary=false`);
+                const response = await fetch(`/items?query=${query}&exclude_text=true`);
                 const endTime = performance.now();
                 const searchTime = (endTime - startTime) / 1000;
 

@@ -186,7 +186,7 @@ def get_schema(app):
     openapi_schema["paths"]["/items"]["get"]["parameters"][1]["description"] = \
         "Perform a semantic search to find all items matching the meaning of this query string."
     openapi_schema["paths"]["/items"]["get"]["parameters"][2]["description"] = \
-        "Includes a small selection of child comments from the Item if set to true."
+        "Exclude text and selected child comments if set to true, default is false."
     openapi_schema["paths"]["/items"]["get"]["parameters"][3]["description"] = \
         "Find items created or submitted by this user."
     openapi_schema["paths"]["/items"]["get"]["parameters"][4]["description"] = \

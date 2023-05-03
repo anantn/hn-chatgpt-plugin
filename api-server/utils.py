@@ -4,6 +4,7 @@ import requests
 
 from sqlalchemy import case, and_
 from sqlalchemy.sql import text
+from sqlalchemy.orm import load_only
 from fastapi.middleware.cors import CORSMiddleware
 
 from schema import *
@@ -35,7 +36,7 @@ def initialize_middleware(app):
     return app
 
 
-def search(url, session, query, by,
+def search(url, session, query, exclude_text, by,
            before_time, after_time, min_score, max_score,
            min_comments, max_comments, sort_by, sort_order,
            skip, limit):
@@ -71,15 +72,25 @@ def search(url, session, query, by,
         f"'{query}'"
 
     # See if we can early return
+    no_text_fields = [Item.id, Item.type, Item.by, Item.time, Item.url,
+                      Item.score, Item.title, Item.descendants]
     if len(query_filters) == 0 and sort_by == SortBy.relevance:
         print(log_msg)
-        q = session.query(Item).filter(
-            Item.id.in_(ids)).order_by(sort_order_expr)
-        return with_summary(session, q.offset(skip).limit(limit).all())
+        q = session.query(Item)
+        if exclude_text:
+            q = q.options(load_only(*no_text_fields))
+        q = q.filter(Item.id.in_(ids)).order_by(sort_order_expr)
+        r = q.offset(skip).limit(limit).all()
+        if exclude_text:
+            return r
+        return with_summary(session, r)
 
     # Apply filters if necessary
     query_filters.append(Item.id.in_(ids))
-    filtered_items = session.query(Item).filter(and_(*query_filters))
+    final_query = session.query(Item)
+    if exclude_text:
+        final_query = final_query.options(load_only(*no_text_fields))
+    filtered_items = final_query.filter(and_(*query_filters))
 
     # Sort results
     if sort_by == SortBy.relevance:
@@ -92,7 +103,10 @@ def search(url, session, query, by,
             filtered_items = filtered_items.order_by(sort_column.desc())
 
     print(f"{log_msg} -> {sort_by}/{len(query_filters)}")
-    return with_summary(session, filtered_items.offset(skip).limit(limit).all())
+    results = filtered_items.offset(skip).limit(limit).all()
+    if exclude_text:
+        return results
+    return with_summary(session, results)
 
 
 def semantic_search(url, session, query, top_k=50):

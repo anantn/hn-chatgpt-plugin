@@ -68,10 +68,10 @@ paths:
       - required: false
         schema:
           type: boolean
-          default: true
-        name: include_summary
+          default: false
+        name: exclude_text
         in: query
-        description: Includes a small selection of child comments from the Item if set to true.
+        description: Exclude text and selected child comments if set to true, default is false.
       - required: false
         schema:
           type: string
