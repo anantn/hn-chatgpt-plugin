@@ -5,24 +5,55 @@ import asyncio
 import sqlite3
 
 from fastapi import FastAPI
+from fastapi.responses import HTMLResponse
 from typing import Optional
 
 import search
 import updater
 import embedder
-from utils import log, LogPhase
+from utils import log, print_db_stats, LogPhase, Telemetry
 
 OPTS = os.getenv("OPTS")
 DB_PATH = os.getenv("DB_PATH")
 PORT = 8001
 
 app = FastAPI()
+telemetry = Telemetry()
 encoder, doc_embedder, sync_service, search_index = None, None, None, None
 
 
 @app.get("/search")
 async def search_api(query: str, top_k: Optional[int] = search.Index.TOP_K):
     return await search_index.search(query, top_k=top_k)
+
+
+@app.get("/health", response_class=HTMLResponse)
+async def health_api(update_db: Optional[bool] = False):
+    report = telemetry.report(update_db=update_db)
+    with open(os.path.join(os.path.dirname(__file__), "health.html"), "r") as file:
+        html_template = file.read()
+
+    html_content = html_template.format(
+        db_metrics="".join(
+            [f"<tr><td>{key}</td><td>{value}</td></tr>" for key, value in report["db"].items()]),
+        counter_metrics="".join(
+            [f"<tr><td>{key}</td><td>{value}</td></tr>" for key, value in report["counters"].items()]),
+        time_metrics="".join(
+            [f"<tr><td>{key}</td><td>{value}</td></tr>" for key, value in report["times"].items()]),
+        memory_metrics="".join(
+            [f"<tr><td>{key}</td><td>{value}</td></tr>" for key, value in report["memory"].items()]),
+        flag_metrics="".join(
+            [f"<tr><td>{key}</td><td>{value}</td></tr>" for key, value in report["flags"].items()])
+    )
+
+    return HTMLResponse(content=html_content, status_code=200)
+
+
+@app.post("/toggle")
+async def toggle_api():
+    global sync_service
+    sync_service.embed_realtime = not sync_service.embed_realtime
+    return {"embed_realtime": sync_service.embed_realtime}
 
 
 async def main(db_conn, embed_conn):
@@ -46,7 +77,7 @@ async def main(db_conn, embed_conn):
     lp = LogPhase("loaded syncservice")
     log("catching up on data updates...")
     sync_service = updater.SyncService(
-        db_conn, embed_conn, offset, doc_embedder, catchup=dosync, embed_realtime=embedrt)
+        db_conn, embed_conn, telemetry, offset, doc_embedder, catchup=dosync, embed_realtime=embedrt)
     updates = await sync_service.run()
     lp.stop()
 
@@ -65,44 +96,25 @@ async def main(db_conn, embed_conn):
     lp.stop()
 
     # Start API server
+    telemetry.connect(db_conn, embed_conn, sync_service, encoder)
     server = uvicorn.Server(uvicorn.Config(
-        app, port=PORT, log_level="info", reload=True))
+        app, host="0.0.0.0", port=PORT, log_level="info", reload=True))
     uvicorn_task = asyncio.create_task(server.serve())
 
-    _, pending = await asyncio.wait(
-        {updates, uvicorn_task}, return_when=asyncio.FIRST_COMPLETED
-    )
-    for task in pending:
-        task.cancel()
+    if dosync:
+        _, pending = await asyncio.wait(
+            {updates, uvicorn_task}, return_when=asyncio.FIRST_COMPLETED
+        )
+        for task in pending:
+            task.cancel()
+    else:
+        await uvicorn_task
 
     print("Exiting...")
     await sync_service.shutdown()
     await encoder.shutdown()
     db_conn.close()
     embed_conn.close()
-
-
-def db_state(db_conn, embed_conn):
-    cursor = db_conn.cursor()
-    cursor.execute("SELECT MAX(id), COUNT(*) FROM items")
-    max_id, total = cursor.fetchone()
-    cursor.execute("SELECT MAX(id) FROM items WHERE type='story'")
-    max_story_id = cursor.fetchone()[0]
-    cursor.close()
-
-    cursor = embed_conn.cursor()
-    cursor.execute(
-        "SELECT MAX(story), COUNT(DISTINCT story), COUNT(*) FROM embeddings")
-    max_story, total_doc, total_embed = cursor.fetchone()
-    cursor.close()
-
-    print(f"{max_id:8}: Max item in db")
-    print(f"{total:8}: Total items in db")
-    print(f"{max_story_id:8}: Max story in db")
-    print(f"{max_story:8}: Max story embedded")
-    print(f"{total_doc:8}: Total docs embedded")
-    print(f"{total_embed:8}: Total embeddings\n")
-
 
 if __name__ == "__main__":
     if not DB_PATH:
@@ -117,5 +129,5 @@ if __name__ == "__main__":
     embed_conn = sqlite3.connect(f"{prefix}_embeddings.db")
     embed_conn.row_factory = sqlite3.Row
 
-    db_state(db_conn, embed_conn)
+    print_db_stats(db_conn, embed_conn)
     asyncio.run(main(db_conn, embed_conn))

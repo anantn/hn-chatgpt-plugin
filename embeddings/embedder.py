@@ -65,8 +65,8 @@ class DocumentEmbedder:
         """)
 
     async def process_stories(self, story_ids):
-        progress = tqdm(desc="parts processed")
-        doc_progress = tqdm(desc="documents processed")
+        # progress = tqdm(desc="parts processed")
+        # doc_progress = tqdm(desc="documents processed")
 
         processed = []
         cursor = self.db_conn.cursor()
@@ -81,11 +81,11 @@ class DocumentEmbedder:
             descendants = 0 if not result[1] else result[1]
             if score < self.MIN_SCORE or descendants < self.MIN_DESCENDANTS:
                 continue
-            await self.process_stories_with_constraint(constraint, progress, doc_progress, batch_size=1)
+            await self.process_stories_with_constraint(constraint, None, None, batch_size=1)
             processed.append(story_id)
 
-        progress.close()
-        doc_progress.close()
+        # progress.close()
+        # doc_progress.close()
         return processed
 
     async def process_catchup_stories(self, offset=0):
@@ -139,9 +139,11 @@ class DocumentEmbedder:
                     (story["id"], part_index, document_part))
                 if len(story_batch) == batch_size:
                     await self.process_batch(story_batch)
-                    progress.update(len(story_batch))
+                    if progress:
+                        progress.update(len(story_batch))
                     story_batch = []
-            doc_progress.update()
+            if doc_progress:
+                doc_progress.update()
 
         # Process the remaining stories in the batch
         if story_batch:

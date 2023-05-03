@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Health Report</title>
+    <style>
+        body {{
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+        }}
+        .container {{
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+        }}
+        h1 {{
+            text-align: center;
+            margin-bottom: 2rem;
+        }}
+        table {{
+            width: 100%;
+            border-collapse: collapse;
+        }}
+        th, td {{
+            width: 50%;
+            text-align: left;
+            padding: 0.5rem 1rem;
+            border-bottom: 1px solid #e0e0e0;
+        }}
+        .bottom-padding {{
+            padding-bottom: 2rem;
+        }}
+    </style>
+    <script>
+        async function toggleEmbedRealtime() {{
+            try {{
+                const response = await fetch('/toggle', {{ method: 'POST' }});
+                if (response.ok) {{
+                    location.reload();
+                }} else {{
+                    alert('Failed to toggle embed_realtime');
+                }}
+            }} catch (error) {{
+                alert('Error while toggling embed_realtime:', error);
+            }}
+        }}
+    </script>
+</head>
+<body>
+    <div class="container">
+        <h1>Health Report</h1>
+        <p><button onclick="toggleEmbedRealtime()">Toggle embed_realtime</button></p>
+        <h2>Counters</h2>
+        <table class="bottom-padding">
+            <tbody>
+                {counter_metrics}
+            </tbody>
+        </table>
+        <h2>Timing Metrics</h2>
+        <table class="bottom-padding">
+            <tbody>
+                {time_metrics}
+            </tbody>
+        </table>
+        <h2>Memory Metrics</h2>
+        <table>
+            <tbody>
+                {memory_metrics}
+            </tbody>
+        </table>
+        <h2>Flags</h2>
+        <table>
+            <tbody>
+                {flag_metrics}
+            </tbody>
+        </table>
+        <h2>Database Metrics</h2>
+        <table class="bottom-padding">
+            <tbody>
+                {db_metrics}
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>

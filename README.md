@@ -24,35 +24,37 @@ This allows ChatGPT to find the right content to analyze and summarize that feel
 
 ## Running locally
 
-You'll need atleast 30G of free disk space and >20G RAM. An nVidia GPU is highly recommended, embedding generation on CPU is painfully slow.
+Assuming you have 32GB of RAM, take a look at [playground.ipynb](playground.ipynb) for quick and dirty ways to run analysis on the sqlite dataset loaded into memory.
+
+You'll need atleast 30G of free disk space and >20G RAM to run the semantic search engine and ChatGPT plugin API. An NVIDIA GPU is highly recommended, embedding generation on CPU is painfully slow and untested on non-NVIDIA GPUs.
 
 Clone the repo and install pre-requisites.
 
 ```bash
-$ git clone https://github.com/anantn/hn-chatgpt-plugin.git
-$ cd hn-chatgpt-plugin/api-server
-$ pip install -r requirements.txt
-$ cd ../embeddings
-$ pip install -r requirements.txt
+git clone https://github.com/anantn/hn-chatgpt-plugin.git
+cd hn-chatgpt-plugin/api-server
+pip install -r requirements.txt
+cd ../embeddings
+pip install -r requirements.txt
 
 # Install zstd with your favorite package manager (brew, apt, etc)
-$ sudo apt install zstd
+sudo apt install zstd
 ```
 
 Grab the datasets [from HuggingFace](https://huggingface.co/datasets/anantn/hacker-news/tree/main) and decompress them:
 
 ```bash
-$ wget https://huggingface.co/datasets/anantn/hacker-news/resolve/main/hn-sqlite-20230429.db.zst
-$ pzstd -d hn-sqlite-20230429.db.zst
+wget https://huggingface.co/datasets/anantn/hacker-news/resolve/main/hn-sqlite-20230429.db.zst
+pzstd -d hn-sqlite-20230429.db.zst
 
-$ wget https://huggingface.co/datasets/anantn/hacker-news/resolve/main/hn-sqlite-20230429_embeddings.db.zst
-$ pzstd -d hn-sqlite-20230429_embeddings.db.zst
+wget https://huggingface.co/datasets/anantn/hacker-news/resolve/main/hn-sqlite-20230429_embeddings.db.zst
+pzstd -d hn-sqlite-20230429_embeddings.db.zst
 ```
 
 Run the embedding server first. The embedding server will by default try to "catch up" on all the latest data changes since the snapshot was generated. You can disable all data updates (recommended for your first run):
 
 ```bash
-$ DB_PATH=hn-sqlite-20230429.db OPTS=nosync,noembed,noembedrt python main.py
+DB_PATH=hn-sqlite-20230429.db OPTS=nosync,noembedcu,noembedrt python main.py
 ```
 
 If you want to generate embeddings and keep your local SQLite database up to date, just run `main.py` with no `OPTS` environment variable.
@@ -60,8 +62,8 @@ If you want to generate embeddings and keep your local SQLite database up to dat
 Once the embedding server is running, start the API server:
 
 ```bash
-$ cd hn-chatgpt-plugin/api-server
-$ DB_PATH=hn-sqlite-20230429.db python main.py
+cd hn-chatgpt-plugin/api-server
+DB_PATH=hn-sqlite-20230429.db python main.py
 ```
 
 Fire up `localhost:8000` in your browser!

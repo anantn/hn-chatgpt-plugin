@@ -16,7 +16,7 @@ class SyncService:
     HN_URL = "https://hacker-news.firebaseio.com/v0"
     EMBED_REALTIME_FREQ = 900  # seconds
 
-    def __init__(self, db_conn, embed_conn, offset, doc_encoder, catchup=True, embed_realtime=True):
+    def __init__(self, db_conn, embed_conn, telemetry, offset, doc_encoder, catchup=True, embed_realtime=True):
         self.db_conn = db_conn
         self.embed_conn = embed_conn
         self.offset = offset
@@ -27,13 +27,16 @@ class SyncService:
         self.disconnect = False
         self.initial_fetch_completed = False
         self.affected_stories = set()
+        self.telemetry = telemetry
 
         self.search_index = None
         self.embedding_task = None
         self.embed_realtime = embed_realtime
 
     async def run(self):
-        updates = asyncio.create_task(self.watch_updates())
+        updates = None
+        if self.catchup:
+            updates = asyncio.create_task(self.watch_updates())
 
         async with aiohttp.ClientSession(read_timeout=5, conn_timeout=5) as session:
             if self.catchup:
@@ -192,12 +195,14 @@ class SyncService:
         while not self.disconnect:
             if len(self.affected_stories) > 0 and self.embed_realtime:
                 to_process = copy.copy(self.affected_stories)
+                self.telemetry.inc("total_affected_stories", len(to_process))
                 self.affected_stories.clear()
-                log(
-                    f"Processing affected stories for realtime embed: {len(to_process)}")
+                # log(
+                #    f"Processing affected stories for realtime embed: {len(to_process)}")
                 processed = await self.doc_encoder.process_stories(to_process)
-                log(
-                    f"{len(processed)} affected stories were interesting, embeddings created")
+                self.telemetry.inc("total_embedded_stories", len(processed))
+                # log(
+                #    f"{len(processed)} affected stories were interesting, embeddings created")
                 if self.search_index:
                     self.search_index.update_embeddings(processed)
                 else:
@@ -216,6 +221,7 @@ class SyncService:
                 profiles.extend(updates["data"]["profiles"])
 
         # Fetch and insert all items as a batch
+        self.telemetry.inc("items_updated", len(items))
         async with aiohttp.ClientSession() as session:
             items_chunks = [items[i:i + self.BATCH_SIZE]
                             for i in range(0, len(items), self.BATCH_SIZE)]
@@ -224,6 +230,7 @@ class SyncService:
                 self.insert_items(fetched_items)
 
         # Fetch and insert all user profiles as a batch
+        self.telemetry.inc("users_updated", len(profiles))
         async with aiohttp.ClientSession() as session:
             profiles_chunks = [profiles[i:i + self.BATCH_SIZE]
                                for i in range(0, len(profiles), self.BATCH_SIZE)]
@@ -242,6 +249,7 @@ class SyncService:
                             break
                         updates = json.loads(event.data)
                         if updates:
+                            self.telemetry.inc("updates")
                             self.buffer.append(updates)
                             if self.initial_fetch_completed:
                                 await self.process_updates()

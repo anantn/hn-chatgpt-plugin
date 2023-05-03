@@ -1,14 +1,10 @@
 import time
 import copy
-import asyncio
 import requests
 
 from sqlalchemy import case, and_
 from sqlalchemy.sql import text
 from fastapi.middleware.cors import CORSMiddleware
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.requests import Request
-from starlette.responses import JSONResponse
 
 from schema import *
 
@@ -16,27 +12,9 @@ from schema import *
 
 DEFAULT_NUM = 10
 MAX_NUM = 50
-TIMEOUT = 30  # seconds
 
 
 def initialize_middleware(app):
-    class TimeoutMiddleware(BaseHTTPMiddleware):
-        async def dispatch(self, request: Request, call_next):
-            async def call_next_with_request():
-                return await call_next(request)
-            task = asyncio.create_task(call_next_with_request())
-            try:
-                response = await asyncio.wait_for(task, timeout=10)
-            except asyncio.TimeoutError:
-                task.cancel()
-                try:
-                    await task
-                except asyncio.CancelledError:
-                    pass
-                response = JSONResponse(status_code=408, content={
-                                        "detail": "Request timeout"})
-            return response
-
     def set_schema():
         if app.openapi_schema:
             return app.openapi_schema
@@ -44,7 +22,6 @@ def initialize_middleware(app):
         return app.openapi_schema
 
     app.openapi = set_schema
-    app.add_middleware(TimeoutMiddleware)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=[
