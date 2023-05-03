@@ -6,8 +6,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hacker News: Simple Semantic Search</title>
     <style>
+        html {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
         body {
             font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            flex: 1;
             margin: 0;
             padding: 0;
         }
@@ -15,7 +24,18 @@
         header {
             background-color: #f0f0f0;
             padding: 1rem;
-            text-align: center;
+        }
+
+        header h1 {
+            margin-bottom: 0.5rem;
+        }
+
+        footer {
+            background-color: #f0f0f0;
+            display: flex;
+            justify-content: flex-start;
+            padding: 1rem 0;
+            padding-left: 1rem;
         }
 
         h1 {
@@ -23,8 +43,8 @@
         }
 
         main {
+            flex-grow: 1;
             padding: 1rem;
-            text-align: center;
         }
 
         input[type="text"] {
@@ -58,8 +78,19 @@
             margin-top: 0.5rem;
         }
 
-        #results {
+        #results-wrapper {
             padding-top: 1rem;
+        }
+
+        #results-summary {
+            padding-bottom: 1rem;
+            font-size: 0.8rem;
+            font-style: italic;
+        }
+
+        #results {
+            padding-left: 1rem;
+            max-width: 800px;
         }
 
         .spinner {
@@ -72,10 +103,37 @@
             animation: spin 1s infinite linear;
         }
 
+        .error-message {
+            color: red;
+            font-size: 1.2rem;
+            margin-top: 1rem;
+        }
+
         @keyframes spin {
             to {
                 transform: rotate(360deg);
             }
+        }
+
+        #placeholder-text {
+            font-size: 1.1rem;
+            line-height: 1.4;
+            margin-top: -1rem;
+        }
+
+        #example-queries {
+            list-style-type: none;
+            padding-left: 1rem;
+            font-style: italic;
+        }
+
+        #example-queries li {
+            margin-bottom: 0.5rem;
+        }
+
+        #example-queries a {
+            text-decoration: underline;
+            cursor: pointer;
         }
     </style>
 </head>
@@ -83,15 +141,74 @@
 <body>
     <header>
         <h1>Hacker News: Simple Semantic Search</h1>
+        <a href="https://github.com/anantn/hn-chatgpt-plugin">Source Code</a> |
+        <a href="/docs">API Docs & Playground</a>
     </header>
     <main>
-        <input type="text" id="search-input" placeholder="Enter your search query..." onkeydown="handleEnterKey(event)">
-        <button onclick="search()">Search</button>
-        <div id="results"></div>
-        <div id="spinner" class="spinner" style="display: none;"></div>
+        <div id="content-wrapper">
+            <div id="search-input-wrapper">
+                <input type="text" id="search-input" placeholder="Ask any question..."
+                    onkeydown="handleEnterKey(event)">
+                <button onclick="search()">Search</button>
+                <button onclick="clearSearch()">Clear</button>
+            </div>
+            <div id="results-wrapper">
+                <div id="results-summary"></div>
+                <div id="results"></div>
+                <div id="spinner" class="spinner" style="display: none;"></div>
+            </div>
+        </div>
     </main>
+    <footer>
 
+    </footer>
     <script>
+        const placeholderText = `
+        <div id="placeholder-text">
+            <p>
+                This is a demo of the semantic search index built to serve as the backend for the Hacker
+                News ChatGPT plugin. Semantic search performs better at finding results for longer natural
+                language queries.
+            </p>
+            <p>
+                Try the following queries, and note that this demo will only retrieve relevant articles but
+                not answer the question &mdash; that task is left to a large language model like GPT.
+            </p>
+            <ul id="example-queries">
+                <li><a href="#">what is the best laptop for programming?</a></li>
+                <li><a href="#">what is aloo biryani?</a></li>
+                <li><a href="#">what companies have been acquired by mozilla?</a></li>
+                <li><a href="#">how do I get a job at facebook?</a></li>
+            </ul>
+        </div>
+        `
+
+        function attachExampleQueries() {
+            document.querySelectorAll("#example-queries a").forEach((exampleQueryLink) => {
+                exampleQueryLink.addEventListener("click", (event) => {
+                    event.preventDefault();
+                    const query = event.target.textContent;
+                    document.getElementById("search-input").value = query;
+                    search();
+                });
+            });
+        }
+        document.getElementById("results").innerHTML = placeholderText;
+        attachExampleQueries();
+
+        function handleEnterKey(event) {
+            if (event.key === "Enter") {
+                search();
+            }
+        }
+
+        function clearSearch() {
+            document.getElementById("search-input").value = "";
+            document.getElementById("results-summary").innerHTML = "";
+            document.getElementById("results").innerHTML = placeholderText;
+            attachExampleQueries();
+        }
+
         function handleEnterKey(event) {
             if (event.key === "Enter") {
                 search();
@@ -106,15 +223,39 @@
                 resultsDiv.innerHTML = '';
                 document.getElementById("spinner").style.display = "inline-block";
 
+                // Do the search
+                const startTime = performance.now();
                 const response = await fetch(`/items?query=${query}`);
-                const data = await response.json();
-                displayResults(data);
+                const endTime = performance.now();
+                const searchTime = (endTime - startTime) / 1000;
+
+                if (response.ok) {
+                    const data = await response.json();
+                    displayResults(data);
+                    updateResultsSummary(data.length, searchTime);
+                } else {
+                    displayError(`Error ${response.status}: ${response.statusText}`);
+                }
 
                 // Hide the spinner
                 document.getElementById("spinner").style.display = "none";
             }
         }
 
+        function updateResultsSummary(numResults, searchTime) {
+            const resultsSummaryDiv = document.getElementById("results-summary");
+            resultsSummaryDiv.innerHTML = `Found ${numResults} results in ${searchTime.toFixed(2)} seconds.`;
+        }
+
+        function timeDifference(story) {
+            const currentDate = new Date();
+            const storyDate = new Date(story.time * 1000);
+            const timeDifference = Math.abs(currentDate - storyDate);
+            const timeDifferenceHours = Math.ceil(timeDifference / (1000 * 60 * 60));
+            const timeDifferenceDays = Math.ceil(timeDifferenceHours / 24);
+            const timeAgo = timeDifferenceHours < 24 ? `${timeDifferenceHours} hours ago` : `${timeDifferenceDays} days ago`;
+            return timeAgo;
+        }
 
         function displayResults(stories) {
             const resultsDiv = document.getElementById("results");
@@ -132,12 +273,18 @@
 
                 const metadata = document.createElement("div");
                 metadata.className = "metadata";
-                const date = new Date(story.time * 1000).toLocaleDateString();
-                metadata.innerHTML = `<strong>Upvotes:</strong> ${story.score} | <strong>Date:</strong> ${date} | <strong><a href="${story.hn_url}">HN Link</a></strong>`;
+                const timeAgo = timeDifference(story);
+                const userUrl = `https://news.ycombinator.com/user?id=${story.by}`;
+                metadata.innerHTML = `${story.score} points | by <a href="${userUrl}">${story.by}</a> | ${timeAgo} | <a href="${story.hn_url}">${story.descendants} comments</a>`;
                 storyDiv.appendChild(metadata);
 
                 resultsDiv.appendChild(storyDiv);
             }
+        }
+
+        function displayError(message) {
+            const resultsDiv = document.getElementById("results");
+            resultsDiv.innerHTML = `<div class="error-message">${message}</div>`;
         }
     </script>
     <a href="https://github.com/anantn/hn-chatgpt-plugin" target="_blank"

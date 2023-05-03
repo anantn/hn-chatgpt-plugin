@@ -16,7 +16,7 @@ from schema import *
 
 DEFAULT_NUM = 10
 MAX_NUM = 50
-TIMEOUT = 10  # seconds
+TIMEOUT = 30  # seconds
 
 
 def initialize_middleware(app):
