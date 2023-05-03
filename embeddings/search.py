@@ -48,14 +48,14 @@ class Index:
         return unique_story_ids
 
     def update_embeddings(self, story_ids):
-        log_with_mem(f"updating {len(story_ids)} embeddings")
+        # log_with_mem(f"updating {len(story_ids)} embeddings")
         for story_id in story_ids:
             self.index.remove_ids(
                 np.array([story_id], dtype=np.int64))
             new_embeddings, new_item_ids = self.load_embeddings(
                 f"WHERE story = {story_id}")
             self.index.add_with_ids(new_embeddings, new_item_ids)
-        log_with_mem(f"updated faiss index!\n")
+        # log_with_mem(f"updated faiss index!\n")
 
     def load_embeddings(self, constraint=""):
         cursor = self.embed_conn.cursor()
