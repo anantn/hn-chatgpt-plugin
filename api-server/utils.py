@@ -51,14 +51,23 @@ def initialize_middleware(app):
 
 
 def with_summary(session, items):
+    x_top = 2
+    n_child = 1
+    if len(items) >= 3:
+        x_top = 1
+        n_child = 1
+    if len(items) >= 5:
+        x_top = 1
+        n_child = 0
+
     for item in items:
-        item.summary = get_comments_text(session, item.id)
+        item.summary = get_comments_text(session, item.id, x_top, n_child)
     return items
 
 
 # Top 'x' kid comments, and 'n' child comment of each top-level comment from the database
 # TODO: limit to word count instead of comment count and find smarter way to rank
-def get_comments_text(session, story_id):
+def get_comments_text(session, story_id, x_top=3, n_child=1):
     comment_text = []
     cursor = session.execute(
         text(
@@ -66,28 +75,29 @@ def get_comments_text(session, story_id):
                     JOIN kids k ON i.id = k.kid
                     WHERE k.item = {story_id} AND i.type = 'comment'
                     ORDER BY k.display_order
-                    LIMIT 5"""
+                    LIMIT {x_top}"""
         )
     ).cursor
     column_names = [desc[0] for desc in cursor.description]
     comments = [Item(**dict(zip(column_names, row))) for row in cursor.fetchall()]
-    for comment in comments:
-        if comment.text:
-            comment_text.append(comment.text)
-            cursor = session.execute(
-                text(
-                    f"""SELECT i.* FROM items i
-                            JOIN kids k ON i.id = k.kid
-                            WHERE k.item = {comment.id} AND i.type = 'comment'
-                            ORDER BY k.display_order
-                            LIMIT 1"""
-                )
-            ).cursor
-            child_row = cursor.fetchone()
-            if child_row:
-                child_comment = Item(**dict(zip(column_names, child_row)))
-                if child_comment.text:
-                    comment_text.append(child_comment.text)
+    if n_child > 0:
+        for comment in comments:
+            if comment.text:
+                comment_text.append(comment.text)
+                cursor = session.execute(
+                    text(
+                        f"""SELECT i.* FROM items i
+                                JOIN kids k ON i.id = k.kid
+                                WHERE k.item = {comment.id} AND i.type = 'comment'
+                                ORDER BY k.display_order
+                                LIMIT {n_child}"""
+                    )
+                ).cursor
+                child_row = cursor.fetchone()
+                if child_row:
+                    child_comment = Item(**dict(zip(column_names, child_row)))
+                    if child_comment.text:
+                        comment_text.append(child_comment.text)
     return comment_text
 
 
