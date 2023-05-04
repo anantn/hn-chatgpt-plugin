@@ -26,13 +26,11 @@ paths:
         schema:
           type: string
           enum:
-            - full
             - none
             - short
           default: short
         name: verbosity
         in: query
-        description: Set this to control the length of the output.
       responses:
         '200':
           description: Successful Response
