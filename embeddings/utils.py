@@ -54,6 +54,18 @@ def get_time_now():
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 
+def print_since(input):
+    dt_format = "%Y-%m-%d %H:%M:%S"
+    dt_obj = datetime.strptime(input, dt_format)
+
+    now = datetime.now()
+    time_diff = now - dt_obj
+    hours, remainder = divmod(time_diff.seconds, 3600)
+    minutes = remainder // 60
+
+    return f"{input} ({hours}:{minutes:02d} hours ago)"
+
+
 class LogPhase:
     def __init__(self, name):
         self.start_time = time.time()
@@ -110,6 +122,9 @@ class Telemetry:
         report["flags"][
             "initial_fetch_completed"
         ] = self.sync_server.initial_fetch_completed
+
+        for key in ["last_update", "last_embed", "start_time"]:
+            report["times"][key] = print_since(self.metrics["times"][key])
 
         if update_db:
             self.metrics["db"] = get_db_stats(self.db_conn, self.embed_conn)
