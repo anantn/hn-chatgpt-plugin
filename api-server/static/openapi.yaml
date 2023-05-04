@@ -12,7 +12,7 @@ info:
 paths:
   "/item":
     get:
-      summary: Retrieve a story, poll, or comment; along with all of their children.
+      summary: Retrieve a story, poll, or comment, along with all of their children.
       operationId: get_item
       parameters:
       - required: false
@@ -32,7 +32,7 @@ paths:
           default: full
         name: verbosity
         in: query
-        description: Set this to control the length of the output. Value of 'full' will retrieve all kid comments (default), 'short' will return the most relevant kid comments, and 'none' will return only the item metadata.
+        description: Set this to control the length of the output.
       responses:
         '200':
           description: Successful Response
@@ -77,19 +77,19 @@ paths:
           type: string
         name: by
         in: query
-        description: Find items created or submitted by this user. These IDs can be input into the get_item endpoint to obtain more information about them.
+        description: Find items created or submitted by this user.
       - required: false
         schema:
           type: string
         name: before_time
         in: query
-        description: Find items submitted at or before this time. You may specify the time in natural language.
+        description: Find items submitted at or before this time. You may specify this in natural language.
       - required: false
         schema:
           type: string
         name: after_time
         in: query
-        description: Find items submitted at or after this time. You may specify the time in natural language.
+        description: Find items submitted at or after this time. You may specify this in natural language.
       - required: false
         schema:
           type: integer
@@ -257,6 +257,7 @@ components:
       properties:
         id:
           type: integer
+          description: ID of the story, job, poll, or comment. Use this with the get_item endpoint.
         type:
           type: string
         by:
@@ -265,30 +266,38 @@ components:
           type: integer
         text:
           type: string
+          description: Text content associated with a story, poll, or comment. Use this as input to summarize or answer questions.
         url:
           type: string
+          description: Original URL of the submission for a story.
         score:
           type: integer
+          description: Number of upvotes associated with this item.
         title:
           type: string
         descendants:
           type: integer
+          description: Number of child comments.
         parent:
           type: integer
         kids:
           type: array
+          description: If not empty, contains the full text and hierarchy of associated comments with this item.
           items:
             type: object
         parts:
           type: array
+          description: If not empty, contains all the options and scores of associated poll options.
           items:
             type: object
         summary:
           type: array
+          description: A selection of top comments associated with a story or poll. Use this as input to summarize or answer questions.
           items:
             type: string
         hn_url:
           type: string
+          description: Link to this item on the Hacker News website.
     UserResponse:
       required:
       - id
