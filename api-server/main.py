@@ -63,7 +63,7 @@ def get_image():
 
 
 @app.get("/item", response_model=FullItemResponse, response_model_exclude_none=True)
-def get_item(id: int = Query(1), verbosity: Verbosity = Verbosity.full):
+def get_item(id: int = Query(1), verbosity: Verbosity = Verbosity.short):
     session = scoped_session()
 
     if verbosity == Verbosity.full:
@@ -76,7 +76,7 @@ def get_item(id: int = Query(1), verbosity: Verbosity = Verbosity.full):
         raise HTTPException(status_code=404, detail="Item not found")
 
     if verbosity == Verbosity.short:
-        item.summary = utils.get_comments_text(session, item.id)
+        item.top_comments = utils.get_comments_text(session, item.id, x_top=5)
 
     return item
 
@@ -183,10 +183,10 @@ def get_items(
     if item_type == ItemType.poll:
         results = utils.get_poll_responses(session, results)
 
-    # Add summary for ChatGPT
+    # Add top_comments if needed
     if exclude_text:
         return jsonable_encoder(results)
-    return jsonable_encoder(utils.with_summary(session, results))
+    return jsonable_encoder(utils.with_top_comments(session, results))
 
 
 @app.get("/user", response_model=UserResponse)

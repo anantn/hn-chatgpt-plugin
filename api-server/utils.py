@@ -50,18 +50,18 @@ def initialize_middleware(app):
     return app
 
 
-def with_summary(session, items):
+def with_top_comments(session, items):
     x_top = 2
     n_child = 1
-    if len(items) >= 3:
+    if len(items) > 3:
         x_top = 1
         n_child = 1
-    if len(items) >= 5:
+    if len(items) > 5:
         x_top = 1
         n_child = 0
 
     for item in items:
-        item.summary = get_comments_text(session, item.id, x_top, n_child)
+        item.top_comments = get_comments_text(session, item.id, x_top, n_child)
     return items
 
 
@@ -80,10 +80,10 @@ def get_comments_text(session, story_id, x_top=3, n_child=1):
     ).cursor
     column_names = [desc[0] for desc in cursor.description]
     comments = [Item(**dict(zip(column_names, row))) for row in cursor.fetchall()]
-    if n_child > 0:
-        for comment in comments:
-            if comment.text:
-                comment_text.append(comment.text)
+    for comment in comments:
+        if comment.text:
+            comment_text.append(comment.text)
+            if n_child > 0:
                 cursor = session.execute(
                     text(
                         f"""SELECT i.* FROM items i

@@ -104,7 +104,7 @@ class ItemResponse(BaseModel):
     descendants: Optional[int] = 0
 
     parent: Optional[int] = None
-    summary: Optional[List[str]] = []
+    top_comments: Optional[List[str]] = []
 
     parts: Optional[List[dict]] = None
     hn_url: Optional[str] = Field(None)

@@ -32,7 +32,7 @@ def search_results(
             )
         ).all()
     else:
-        filtered = utils.with_summary(session, filtered.all())
+        filtered = utils.with_top_comments(session, filtered.all())
 
     ordered_items = sorted(filtered, key=lambda item: limit_ids.index(item.id))
     expand = time.time() - expand

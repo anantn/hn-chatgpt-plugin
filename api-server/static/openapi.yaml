@@ -29,7 +29,7 @@ paths:
             - full
             - none
             - short
-          default: full
+          default: short
         name: verbosity
         in: query
         description: Set this to control the length of the output.
@@ -290,7 +290,7 @@ components:
           description: If not empty, contains all the options and scores of associated poll options.
           items:
             type: object
-        summary:
+        top_comments:
           type: array
           description: A selection of top comments associated with a story or poll. Use this as input to summarize or answer questions.
           items:
