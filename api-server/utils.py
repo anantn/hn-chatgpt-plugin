@@ -9,7 +9,7 @@ from schema import *
 # Helper methods
 
 DEFAULT_NUM = 10
-MAX_NUM = 50
+MAX_NUM = 25
 EXAMPLE_QUESTIONS = [
     "best laptop for coding that isn't from apple",
     "who was acquired by mozilla",
