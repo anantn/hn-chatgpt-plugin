@@ -1,5 +1,5 @@
 {
-    "schema_version": "v1.1",
+    "schema_version": "v1.2",
     "name_for_human": "Hacker News",
     "name_for_model": "hacker_news",
     "description_for_human": "Plugin for searching, analyzing, and summarizing insights from the Hacker News community.",

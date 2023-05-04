@@ -1,7 +1,7 @@
 openapi: 3.0.1
 info:
   title: Hacker News API for ChatGPT
-  version: '0.1'
+  version: '0.2'
   description: Query, analyze, and summarize insights from the Hacker News community.
   contact:
     url: https://hn.kix.in/
