@@ -282,12 +282,12 @@ components:
           type: integer
         kids:
           type: array
-          description: If not empty, contains the full text and hierarchy of associated comments with this item.
+          description: Contains the full text and hierarchy of associated comments with this item.
           items:
             type: object
         parts:
           type: array
-          description: If not empty, contains all the options and scores of associated poll options.
+          description: Contains the text and scores of all associated poll options.
           items:
             type: object
         top_comments:

@@ -77,6 +77,11 @@ def get_item(id: int = Query(1), verbosity: Verbosity = Verbosity.short):
     if verbosity == Verbosity.short:
         item.top_comments = utils.get_comments_text(session, item.id, x_top=5)
 
+    # If item_type was poll, also add pollopts
+    if item.type == ItemType.poll.value:
+        items = utils.get_poll_responses(session, [item])
+        item = items[0]
+
     return item
 
 
@@ -183,6 +188,7 @@ def get_items(
     # Limit & skip
     items_query = items_query.offset(skip).limit(limit)
     results = items_query.all()
+
     # If item_type was poll, also add pollopts
     if item_type == ItemType.poll:
         results = utils.get_poll_responses(session, results)
