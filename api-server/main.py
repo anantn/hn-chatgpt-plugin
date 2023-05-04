@@ -2,7 +2,6 @@ import os
 import uvicorn
 import requests
 
-from uvicorn.config import LOGGING_CONFIG
 from requests.exceptions import HTTPError
 from fastapi import Query, FastAPI, HTTPException
 from starlette.responses import FileResponse
@@ -265,11 +264,4 @@ if __name__ == "__main__":
     except (HTTPError, Exception):
         print(f"Please run the data server first!")
         exit(1)
-
-    LOGGING_CONFIG["formatters"]["default"][
-        "fmt"
-    ] = "%(asctime)s [%(name)s] %(levelprefix)s %(message)s"
-    LOGGING_CONFIG["formatters"]["access"][
-        "fmt"
-    ] = '%(asctime)s [%(name)s] %(levelprefix)s %(client_addr)s - "%(request_line)s" %(status_code)s'
     uvicorn.run(app, port=PORT)
