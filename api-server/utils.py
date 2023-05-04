@@ -9,6 +9,24 @@ from schema import *
 
 DEFAULT_NUM = 10
 MAX_NUM = 50
+EXAMPLE_QUESTIONS = [
+    "best laptop for coding that isn't from apple",
+    "who was acquired by mozilla",
+    "how can i land a job at faang?",
+    "help me find true love",
+    "what's it like working at an early stage startup",
+    "top data science tools i should learn",
+    "interesting articles about astronomy",
+    "latest breakthroughs in battery technology",
+    "how do i become a great manager?",
+    "effective strategies for overcoming procrastination"
+]
+
+
+def example_questions(as_json=False):
+    if as_json:
+        return json.dumps(EXAMPLE_QUESTIONS, ensure_ascii=False).encode('utf8')
+    return EXAMPLE_QUESTIONS
 
 
 def initialize_middleware(app):

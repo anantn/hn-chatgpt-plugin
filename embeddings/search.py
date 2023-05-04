@@ -10,7 +10,6 @@ class Index:
     NLIST = 100
     NPROBE = 35
     EMBEDDING_DIM = 768
-    INSTRUCTION = 'Represent the question for retrieving supporting forum discussions: '
 
     def __init__(self, db_conn, embed_conn, encoder):
         self.encoder = encoder
@@ -35,9 +34,8 @@ class Index:
         log_with_mem("built index with IDs")
 
     async def search(self, query, top_k=TOP_K):
-        req = await self.encoder.encode([[self.INSTRUCTION, query]], high_priority=True)
-        query_embedding = req[0]
-        D, I = self.index.search(np.array([query_embedding]), top_k)
+        req = await self.encoder.encode([query], high_priority=True)
+        D, I = self.index.search(np.array(req), top_k)
 
         unique_story_ids = []
         seen_ids = set()

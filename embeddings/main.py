@@ -69,7 +69,7 @@ async def main(db_conn, embed_conn):
     # Load embedder
     lp = LogPhase("loaded embedder")
     encoder = embedder.Embedder()
-    await encoder.encode([["test", "query"]])
+    await encoder.encode(["hello hacker news"])
     doc_embedder = embedder.DocumentEmbedder(db_conn, embed_conn, encoder)
     lp.stop()
 

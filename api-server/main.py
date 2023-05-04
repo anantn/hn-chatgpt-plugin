@@ -204,9 +204,11 @@ def get_users(before_created: Optional[str] = None, after_created: Optional[str]
 
 if __name__ == "__main__":
     try:
-        params = {"query": "test"}
-        req = requests.get(DATA_SERVER, params=params)
-        _ = req.json()
+        print("Testing data server...")
+        for q in utils.example_questions():
+            params = {"query": q}
+            req = requests.get(DATA_SERVER, params=params)
+            _ = req.json()
     except (HTTPError, Exception):
         print(f"Please run the data server first!")
         exit(1)

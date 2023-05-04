@@ -101,6 +101,8 @@ class Telemetry:
         report = {}
         report.update(self.metrics)
         report["counters"]["qsize"] = self.encoder.request_queue.qsize()
+        report["counters"]["cache_size"] = len(self.encoder.cache)
+        report["counters"]["cache_hits"] = self.encoder.cache_hits
 
         report["memory"]["used"] = psutil.virtual_memory().used >> 20
         report["memory"]["free"] = psutil.virtual_memory().free >> 20

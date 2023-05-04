@@ -2,12 +2,17 @@ import re
 import html
 import asyncio
 import datetime
+import collections
 
 from tqdm import tqdm
 from collections import defaultdict
 from InstructorEmbedding import INSTRUCTOR
 
 from utils import log, log_with_mem
+
+DOCUMENT_INSTRUCTION = "Represent the forum discussion on a topic:"
+QUERY_INSTRUCTION = "Represent the question for retrieving supporting forum discussions: "
+MAX_CACHE_SIZE = 10000
 
 
 class Embedder:
@@ -17,10 +22,28 @@ class Embedder:
         self.request_queue = asyncio.PriorityQueue()
         self._stop_event = asyncio.Event()
         self.processing_task = asyncio.create_task(self._process_requests())
+        self.cache = collections.OrderedDict()
+        self.cache_hits = 0
 
-    async def encode(self, text_pairs, high_priority=False):
-        priority = 0 if high_priority else 1
+    async def encode(self, texts, high_priority=False, document=False):
+        # Normalize
+        texts = [" ".join(text.lower().split()) for text in texts]
+
+        # Check cache for single texts of instruction type query
+        if len(texts) == 1 and not document and texts[0] in self.cache:
+            self.cache_hits += 1
+            self.cache.move_to_end(texts[0])
+            return self.cache[texts[0]]
+
+        text_pairs = []
+        for text in texts:
+            if document:
+                text_pairs.append([DOCUMENT_INSTRUCTION, text])
+            else:
+                text_pairs.append([QUERY_INSTRUCTION, text])
+
         result_queue = asyncio.Queue()
+        priority = 0 if high_priority else 1
         await self.request_queue.put((priority, (text_pairs, result_queue)))
         return await result_queue.get()
 
@@ -29,6 +52,13 @@ class Embedder:
             _, (text_pairs, result_queue) = await self.request_queue.get()
             if text_pairs is not None:
                 embeddings = self.model.encode(text_pairs)
+                # Store in cache if appropriate
+                if len(embeddings) == 1 and text_pairs[0][0] == QUERY_INSTRUCTION:
+                    cache_key = text_pairs[0][1]
+                    self.cache[cache_key] = embeddings
+                    self.cache.move_to_end(cache_key)
+                    if len(self.cache) > MAX_CACHE_SIZE:
+                        self.cache.popitem(last=False)
                 await result_queue.put(embeddings)
 
     async def shutdown(self):
@@ -44,7 +74,6 @@ class DocumentEmbedder:
     CHARACTER_LIMIT = 4096
     TOKEN_LIMIT = 1024
     BATCH_SIZE = 16
-    INSTRUCTION = "Represent the forum discussion on a topic:"
     MIN_SCORE = 20
     MIN_DESCENDANTS = 3
 
@@ -149,7 +178,7 @@ class DocumentEmbedder:
 
     async def process_batch(self, story_batch):
         embeddings_batch = await self.encoder.encode(
-            [[self.INSTRUCTION, part] for _, _, part in story_batch]
+            [part for _, _, part in story_batch], document=True
         )
         insert_data = [
             (story_id, part_index, embeddings.tobytes())
