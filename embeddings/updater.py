@@ -16,7 +16,16 @@ class SyncService:
     HN_URL = "https://hacker-news.firebaseio.com/v0"
     EMBED_REALTIME_FREQ = 900  # seconds
 
-    def __init__(self, db_conn, embed_conn, telemetry, offset, doc_encoder, catchup=True, embed_realtime=True):
+    def __init__(
+        self,
+        db_conn,
+        embed_conn,
+        telemetry,
+        offset,
+        doc_encoder,
+        catchup=True,
+        embed_realtime=True,
+    ):
         self.db_conn = db_conn
         self.embed_conn = embed_conn
         self.offset = offset
@@ -48,12 +57,12 @@ class SyncService:
                 log(f"Fetching items from ID {start_id} to {max_item_id}")
                 await self.fetch_and_insert_items(session, start_id, max_item_id)
                 log(
-                    f"Finished initial fetch, now inserting updates (buffered {len(self.buffer)})")
+                    f"Finished initial fetch, now inserting updates (buffered {len(self.buffer)})"
+                )
             self.initial_fetch_completed = True
 
         if self.embed_realtime:
-            self.embedding_task = asyncio.create_task(
-                self.process_affected_stories())
+            self.embedding_task = asyncio.create_task(self.process_affected_stories())
         return updates
 
     async def shutdown(self):
@@ -75,15 +84,15 @@ class SyncService:
         return row[0] or 0
 
     def get_max_item_id(self):
-        response = requests.get(f'{self.HN_URL}/maxitem.json')
+        response = requests.get(f"{self.HN_URL}/maxitem.json")
         return response.json()
 
     async def fetch_item(self, session, id):
-        async with session.get(f'{self.HN_URL}/item/{id}.json') as response:
+        async with session.get(f"{self.HN_URL}/item/{id}.json") as response:
             return await response.json()
 
     async def fetch_user(self, session, id):
-        async with session.get(f'{self.HN_URL}/user/{id}.json') as response:
+        async with session.get(f"{self.HN_URL}/user/{id}.json") as response:
             return await response.json()
 
     def insert_items(self, items):
@@ -98,23 +107,40 @@ class SyncService:
                 else:
                     parts = str(item["parts"])
 
-            cursor.execute("""
+            cursor.execute(
+                """
             INSERT OR REPLACE INTO items
                 (id, deleted, type, by, time, text, dead, parent,
                  poll, url, score, title, parts, descendants)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                           (item["id"], item.get("deleted"), item["type"], item.get("by"), item["time"], item.get("text"),
-                            item.get("dead"), item.get("parent"), item.get(
-                                "poll"), item.get("url"), item.get("score"),
-                            item.get("title"), parts, item.get("descendants")))
+                (
+                    item["id"],
+                    item.get("deleted"),
+                    item["type"],
+                    item.get("by"),
+                    item["time"],
+                    item.get("text"),
+                    item.get("dead"),
+                    item.get("parent"),
+                    item.get("poll"),
+                    item.get("url"),
+                    item.get("score"),
+                    item.get("title"),
+                    parts,
+                    item.get("descendants"),
+                ),
+            )
 
             if item.get("kids"):
                 for order, kid_id in enumerate(item["kids"]):
-                    cursor.execute("""
+                    cursor.execute(
+                        """
                     INSERT OR REPLACE INTO kids
                         (item, kid, display_order)
                     VALUES (?, ?, ?)
-                    """, (item["id"], kid_id, order))
+                    """,
+                        (item["id"], kid_id, order),
+                    )
 
             self.db_conn.commit()
         cursor.close()
@@ -132,11 +158,19 @@ class SyncService:
                 elif isinstance(user["submitted"], int):
                     submitted = str(user["submitted"])
 
-            cursor.execute("""
+            cursor.execute(
+                """
             INSERT OR REPLACE INTO users
                 (id, created, karma, about, submitted)
             VALUES (?, ?, ?, ?, ?)""",
-                           (user["id"], user["created"], user["karma"], user.get("about"), submitted))
+                (
+                    user["id"],
+                    user["created"],
+                    user["karma"],
+                    user.get("about"),
+                    submitted,
+                ),
+            )
 
         self.db_conn.commit()
         cursor.close()
@@ -149,12 +183,19 @@ class SyncService:
             retry_delay = 5
             while retry_count < max_retries:
                 try:
-                    fetched_items = await asyncio.gather(*[self.fetch_item(session, i + j) for j in range(self.BATCH_SIZE)])
+                    fetched_items = await asyncio.gather(
+                        *[
+                            self.fetch_item(session, i + j)
+                            for j in range(self.BATCH_SIZE)
+                        ]
+                    )
                     self.insert_items(fetched_items)
                     progress_bar.update(self.BATCH_SIZE)
                     break
-                except (aiohttp.client_exceptions.ClientConnectorError,
-                        aiohttp.client_exceptions.ServerTimeoutError) as e:
+                except (
+                    aiohttp.client_exceptions.ClientConnectorError,
+                    aiohttp.client_exceptions.ServerTimeoutError,
+                ) as e:
                     await asyncio.sleep(retry_delay)
                     retry_count += 1
         progress_bar.close()
@@ -177,7 +218,7 @@ class SyncService:
             FROM item_hierarchy
             WHERE parent IS NULL
             """,
-            (item_id,)
+            (item_id,),
         )
         story = cursor.fetchone()
         cursor.close()
@@ -206,8 +247,7 @@ class SyncService:
                 if self.search_index:
                     self.search_index.update_embeddings(processed)
                 else:
-                    log(
-                        f"WARNING: could not update FAISS index!")
+                    log(f"WARNING: could not update FAISS index!")
             await asyncio.sleep(self.EMBED_REALTIME_FREQ)
 
     async def process_updates(self):
@@ -223,19 +263,27 @@ class SyncService:
         # Fetch and insert all items as a batch
         self.telemetry.inc("items_updated", len(items))
         async with aiohttp.ClientSession() as session:
-            items_chunks = [items[i:i + self.BATCH_SIZE]
-                            for i in range(0, len(items), self.BATCH_SIZE)]
+            items_chunks = [
+                items[i : i + self.BATCH_SIZE]
+                for i in range(0, len(items), self.BATCH_SIZE)
+            ]
             for chunk in items_chunks:
-                fetched_items = await asyncio.gather(*[self.fetch_item(session, item_id) for item_id in chunk])
+                fetched_items = await asyncio.gather(
+                    *[self.fetch_item(session, item_id) for item_id in chunk]
+                )
                 self.insert_items(fetched_items)
 
         # Fetch and insert all user profiles as a batch
         self.telemetry.inc("users_updated", len(profiles))
         async with aiohttp.ClientSession() as session:
-            profiles_chunks = [profiles[i:i + self.BATCH_SIZE]
-                               for i in range(0, len(profiles), self.BATCH_SIZE)]
+            profiles_chunks = [
+                profiles[i : i + self.BATCH_SIZE]
+                for i in range(0, len(profiles), self.BATCH_SIZE)
+            ]
             for chunk in profiles_chunks:
-                fetched_profiles = await asyncio.gather(*[self.fetch_user(session, profile_id) for profile_id in chunk])
+                fetched_profiles = await asyncio.gather(
+                    *[self.fetch_user(session, profile_id) for profile_id in chunk]
+                )
                 self.insert_users(fetched_profiles)
 
         self.affected_stories.update(self.extract_affected_stories(items))
@@ -243,7 +291,9 @@ class SyncService:
     async def watch_updates(self):
         while not self.disconnect:
             try:
-                async with EventSource(f"{self.HN_URL}/updates.json", timeout=-1) as client:
+                async with EventSource(
+                    f"{self.HN_URL}/updates.json", timeout=-1
+                ) as client:
                     async for event in client:
                         if self.disconnect:
                             break
@@ -255,9 +305,10 @@ class SyncService:
                                 await self.process_updates()
                                 self.buffer.clear()
                             else:
-                                log(
-                                    f"Buffer now at {len(self.buffer)}.")
-            except (aiohttp.client_exceptions.ClientConnectorError,
-                    aiohttp.client_exceptions.ClientOSError,
-                    TimeoutError) as e:
+                                log(f"Buffer now at {len(self.buffer)}.")
+            except (
+                aiohttp.client_exceptions.ClientConnectorError,
+                aiohttp.client_exceptions.ClientOSError,
+                TimeoutError,
+            ) as e:
                 await asyncio.sleep(self.RETRY)

@@ -11,7 +11,9 @@ from InstructorEmbedding import INSTRUCTOR
 from utils import log, log_with_mem
 
 DOCUMENT_INSTRUCTION = "Represent the forum discussion on a topic:"
-QUERY_INSTRUCTION = "Represent the question for retrieving supporting forum discussions: "
+QUERY_INSTRUCTION = (
+    "Represent the question for retrieving supporting forum discussions: "
+)
 MAX_CACHE_SIZE = 10000
 
 
@@ -83,7 +85,8 @@ class DocumentEmbedder:
         self.encoder = encoder
 
         # Create the embeddings table if it doesn't exist
-        self.embed_conn.execute("""
+        self.embed_conn.execute(
+            """
         CREATE TABLE IF NOT EXISTS embeddings (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 story INTEGER,
@@ -91,7 +94,8 @@ class DocumentEmbedder:
                 embedding BLOB,
                 UNIQUE (story, part_index)
             )
-        """)
+        """
+        )
 
     async def process_stories(self, story_ids):
         progress = tqdm(desc="parts processed", disable=True)
@@ -110,7 +114,9 @@ class DocumentEmbedder:
             descendants = 0 if not result[1] else result[1]
             if score < self.MIN_SCORE or descendants < self.MIN_DESCENDANTS:
                 continue
-            await self.process_stories_with_constraint(constraint, progress, doc_progress, batch_size=1)
+            await self.process_stories_with_constraint(
+                constraint, progress, doc_progress, batch_size=1
+            )
             processed.append(story_id)
 
         progress.close()
@@ -119,7 +125,9 @@ class DocumentEmbedder:
 
     async def process_catchup_stories(self, offset=0):
         # Fetch all interesting stories
-        interesting = f"AND score >= {self.MIN_SCORE} AND descendants >= {self.MIN_DESCENDANTS}"
+        interesting = (
+            f"AND score >= {self.MIN_SCORE} AND descendants >= {self.MIN_DESCENDANTS}"
+        )
         constraint = f"FROM items WHERE type = 'story' {interesting}"
 
         # Fetch the last processed story
@@ -129,20 +137,23 @@ class DocumentEmbedder:
         missing = self.find_missing(constraint)
         if len(missing) > 0:
             log(
-                f"Found {len(missing)} missing stories, resetting last_processed_story ({last_processed_story})")
+                f"Found {len(missing)} missing stories, resetting last_processed_story ({last_processed_story})"
+            )
             last_processed_story = min(min(missing), last_processed_story)
 
         if last_processed_story:
             log(f"Found last processed story: {last_processed_story}")
             if offset != 0:
                 cursor = self.db_conn.cursor()
-                cursor.execute('''SELECT id FROM (
+                cursor.execute(
+                    """SELECT id FROM (
         SELECT id FROM items WHERE id < ? AND type='story' ORDER BY id DESC
-        ) AS subquery LIMIT 1 OFFSET ?;''', (last_processed_story, offset-1))
+        ) AS subquery LIMIT 1 OFFSET ?;""",
+                    (last_processed_story, offset - 1),
+                )
                 last_processed_story = cursor.fetchone()[0]
                 cursor.close()
-            log(
-                f"Resuming from story {last_processed_story} (after offset: {offset})")
+            log(f"Resuming from story {last_processed_story} (after offset: {offset})")
             constraint += f" AND id > {last_processed_story}"
 
         cursor = self.db_conn.cursor()
@@ -157,15 +168,16 @@ class DocumentEmbedder:
         progress.close()
         doc_progress.close()
 
-    async def process_stories_with_constraint(self, constraint, progress, doc_progress, batch_size=BATCH_SIZE):
+    async def process_stories_with_constraint(
+        self, constraint, progress, doc_progress, batch_size=BATCH_SIZE
+    ):
         story_iter = self.story_generator(constraint)
         story_batch = []
 
-        for (story, comments) in story_iter:
+        for story, comments in story_iter:
             document_parts = self.create_documents(story, comments)
             for part_index, document_part in enumerate(document_parts):
-                story_batch.append(
-                    (story["id"], part_index, document_part))
+                story_batch.append((story["id"], part_index, document_part))
                 if len(story_batch) == batch_size:
                     await self.process_batch(story_batch)
                     progress.update(len(story_batch))
@@ -182,7 +194,9 @@ class DocumentEmbedder:
         )
         insert_data = [
             (story_id, part_index, embeddings.tobytes())
-            for (story_id, part_index, _), embeddings in zip(story_batch, embeddings_batch)
+            for (story_id, part_index, _), embeddings in zip(
+                story_batch, embeddings_batch
+            )
         ]
         cursor = self.embed_conn.cursor()
         cursor.executemany(
@@ -203,8 +217,7 @@ class DocumentEmbedder:
         log_with_mem(f"Found {items_count} interesting stories from items")
 
         embeddings_cursor = self.embed_conn.cursor()
-        embeddings_cursor.execute(
-            "SELECT COUNT(DISTINCT story) FROM embeddings")
+        embeddings_cursor.execute("SELECT COUNT(DISTINCT story) FROM embeddings")
         embeddings_count = embeddings_cursor.fetchone()[0]
         log_with_mem(f"Found {embeddings_count} stories with embeddings")
 
@@ -229,7 +242,7 @@ class DocumentEmbedder:
             embeddings.add(embedding[0])
         embeddings_cursor.close()
 
-        return items-embeddings
+        return items - embeddings
 
     def format_date(self, unix_timestamp):
         dt = datetime.datetime.fromtimestamp(unix_timestamp)
@@ -249,7 +262,9 @@ class DocumentEmbedder:
     def filter_comments(self, comments):
         # Filter out comments containing "[dead]" or "[flagged]"
         filtered_comments = [
-            comment for comment in comments if "[dead]" not in comment["text"] and "[flagged]" not in comment["text"]
+            comment
+            for comment in comments
+            if "[dead]" not in comment["text"] and "[flagged]" not in comment["text"]
         ]
         return filtered_comments
 
@@ -298,7 +313,7 @@ class DocumentEmbedder:
         # submitted by {clean_text(story["by"])} on {format_date(story["time"])}\n
         if story["text"]:
             header += f'{self.clean_text(story["text"])}\n'
-        return header + 'Discussion:\n'
+        return header + "Discussion:\n"
 
     def create_documents(self, story, comments):
         document_parts = []
@@ -322,8 +337,7 @@ class DocumentEmbedder:
                 document_parts.append(current_document)
                 current_document = self.story_header(story)
 
-            current_document += "\t" * level + \
-                f'{self.clean_text(comment["text"])}\n'
+            current_document += "\t" * level + f'{self.clean_text(comment["text"])}\n'
 
             # Add child comments to the stack
             for child_comment in comments_by_parent[comment["id"]]:

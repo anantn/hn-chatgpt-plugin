@@ -11,19 +11,19 @@ PORT = 3333
 CORS(app, origins=[f"http://localhost:{PORT}", "https://chat.openai.com"])
 
 
-@app.route('/.well-known/ai-plugin.json')
+@app.route("/.well-known/ai-plugin.json")
 def serve_manifest():
-    return send_from_directory(os.path.dirname(__file__), 'static/ai-plugin.json')
+    return send_from_directory(os.path.dirname(__file__), "static/ai-plugin.json")
 
 
-@app.route('/openapi.yaml')
+@app.route("/openapi.yaml")
 def serve_openapi_yaml():
-    return send_from_directory(os.path.dirname(__file__), 'static/openapi.yaml')
+    return send_from_directory(os.path.dirname(__file__), "static/openapi.yaml")
 
 
-@app.route('/logo.png')
+@app.route("/logo.png")
 def serve_logo():
-    return send_from_directory(os.path.dirname(__file__), 'static/logo.png')
+    return send_from_directory(os.path.dirname(__file__), "static/logo.png")
 
 
 def proxy_request(endpoint):
@@ -31,7 +31,10 @@ def proxy_request(endpoint):
     response = requests.get(url, params=request.args)
 
     if response.status_code != 200:
-        return jsonify({"error": "Failed to fetch data from Algolia API"}), response.status_code
+        return (
+            jsonify({"error": "Failed to fetch data from Algolia API"}),
+            response.status_code,
+        )
 
     return jsonify(response.json())
 

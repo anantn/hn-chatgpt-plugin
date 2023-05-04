@@ -21,12 +21,17 @@ from schema import *
 PORT = 8000
 DB_PATH = os.path.expanduser(os.environ.get("DB_PATH"))
 if not DB_PATH:
-    print("Please set the DB_PATH environment variable to the path of the SQLite database.")
+    print(
+        "Please set the DB_PATH environment variable to the path of the SQLite database."
+    )
     exit()
 DATA_SERVER = f"http://localhost:{PORT+1}/search"
 
 engine = create_engine(
-    f"sqlite:///{DB_PATH}?mode=ro", connect_args={"check_same_thread": False}, echo=False)
+    f"sqlite:///{DB_PATH}?mode=ro",
+    connect_args={"check_same_thread": False},
+    echo=False,
+)
 session_factory = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 scoped_session = scoped_session(session_factory)
 Base.metadata.create_all(bind=engine)
@@ -57,8 +62,7 @@ def get_image():
     return FileResponse("static/index.html")
 
 
-@app.get("/item", response_model=FullItemResponse,
-         response_model_exclude_none=True)
+@app.get("/item", response_model=FullItemResponse, response_model_exclude_none=True)
 def get_item(id: int = Query(1), verbosity: Verbosity = Verbosity.full):
     session = scoped_session()
 
@@ -77,36 +81,65 @@ def get_item(id: int = Query(1), verbosity: Verbosity = Verbosity.full):
     return item
 
 
-@app.get("/items", response_model=List[ItemResponse],
-         response_model_exclude_none=True)
-def get_items(item_type: ItemType = ItemType.story, query: Optional[str] = Query(None),
-              exclude_text: Optional[bool] = False, by: Optional[str] = Query(None),
-              before_time: Optional[str] = None, after_time: Optional[str] = None,
-              min_score: Optional[int] = None, max_score: Optional[int] = None,
-              min_comments: Optional[int] = None, max_comments: Optional[int] = None,
-              sort_by: SortBy = SortBy.relevance, sort_order: SortOrder = SortOrder.desc,
-              skip: int = 0, limit: int = utils.DEFAULT_NUM):
+@app.get("/items", response_model=List[ItemResponse], response_model_exclude_none=True)
+def get_items(
+    item_type: ItemType = ItemType.story,
+    query: Optional[str] = Query(None),
+    exclude_text: Optional[bool] = False,
+    by: Optional[str] = Query(None),
+    before_time: Optional[str] = None,
+    after_time: Optional[str] = None,
+    min_score: Optional[int] = None,
+    max_score: Optional[int] = None,
+    min_comments: Optional[int] = None,
+    max_comments: Optional[int] = None,
+    sort_by: SortBy = SortBy.relevance,
+    sort_order: SortOrder = SortOrder.desc,
+    skip: int = 0,
+    limit: int = utils.DEFAULT_NUM,
+):
     if limit > utils.MAX_NUM:
         limit = utils.MAX_NUM
-    before_time = dateparser.parse(
-        before_time).timestamp() if before_time else None
-    after_time = dateparser.parse(
-        after_time).timestamp() if after_time else None
+    before_time = dateparser.parse(before_time).timestamp() if before_time else None
+    after_time = dateparser.parse(after_time).timestamp() if after_time else None
     session = scoped_session()
 
     # If query is not empty and type is story or comments, go the semantic search route
     if query is not None and item_type in [ItemType.story, ItemType.comment]:
-        return jsonable_encoder(search(DATA_SERVER, session, query, exclude_text, by,
-                                       before_time, after_time, min_score, max_score,
-                                       min_comments, max_comments, sort_by, sort_order,
-                                       skip, limit))
+        return jsonable_encoder(
+            search(
+                DATA_SERVER,
+                session,
+                query,
+                exclude_text,
+                by,
+                before_time,
+                after_time,
+                min_score,
+                max_score,
+                min_comments,
+                max_comments,
+                sort_by,
+                sort_order,
+                skip,
+                limit,
+            )
+        )
 
     # Set type and don't load any children by default
     items_query = session.query(Item)
 
     if exclude_text:
-        fields = [Item.id, Item.type, Item.by, Item.time, Item.url,
-                  Item.score, Item.title, Item.descendants]
+        fields = [
+            Item.id,
+            Item.type,
+            Item.by,
+            Item.time,
+            Item.url,
+            Item.score,
+            Item.title,
+            Item.descendants,
+        ]
         items_query = items_query.options(load_only(*fields))
     if item_type is not None:
         items_query = items_query.filter(Item.type == item_type.value)
@@ -130,7 +163,8 @@ def get_items(item_type: ItemType = ItemType.story, query: Optional[str] = Query
     # If query is set but type is 'poll' or 'job', just use contains
     if query is not None:
         items_query = items_query.filter(
-            or_(Item.title.contains(query), Item.text.contains(query)))
+            or_(Item.title.contains(query), Item.text.contains(query))
+        )
 
     # Sorting
     if sort_by is not None:
@@ -165,16 +199,24 @@ def get_user(id: str = Query("pg")):
 
 
 @app.get("/users", response_model=List[UserResponse])
-def get_users(before_created: Optional[str] = None, after_created: Optional[str] = None,
-              min_karma: Optional[int] = None, max_karma: Optional[int] = None,
-              sort_by: UserSortBy = UserSortBy.karma, sort_order: SortOrder = SortOrder.desc,
-              skip: int = 0, limit: int = utils.DEFAULT_NUM):
+def get_users(
+    before_created: Optional[str] = None,
+    after_created: Optional[str] = None,
+    min_karma: Optional[int] = None,
+    max_karma: Optional[int] = None,
+    sort_by: UserSortBy = UserSortBy.karma,
+    sort_order: SortOrder = SortOrder.desc,
+    skip: int = 0,
+    limit: int = utils.DEFAULT_NUM,
+):
     if limit > utils.MAX_NUM:
         limit = utils.MAX_NUM
-    before_created = dateparser.parse(
-        before_created).timestamp() if before_created else None
-    after_created = dateparser.parse(
-        after_created).timestamp() if after_created else None
+    before_created = (
+        dateparser.parse(before_created).timestamp() if before_created else None
+    )
+    after_created = (
+        dateparser.parse(after_created).timestamp() if after_created else None
+    )
     session = scoped_session()
 
     # Select columns except submitted
@@ -213,7 +255,10 @@ if __name__ == "__main__":
         print(f"Please run the data server first!")
         exit(1)
 
-    LOGGING_CONFIG["formatters"]["default"]["fmt"] = "%(asctime)s [%(name)s] %(levelprefix)s %(message)s"
+    LOGGING_CONFIG["formatters"]["default"][
+        "fmt"
+    ] = "%(asctime)s [%(name)s] %(levelprefix)s %(message)s"
     LOGGING_CONFIG["formatters"]["access"][
-        "fmt"] = '%(asctime)s [%(name)s] %(levelprefix)s %(client_addr)s - "%(request_line)s" %(status_code)s'
+        "fmt"
+    ] = '%(asctime)s [%(name)s] %(levelprefix)s %(client_addr)s - "%(request_line)s" %(status_code)s'
     uvicorn.run(app, port=PORT)

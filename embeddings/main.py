@@ -35,15 +35,35 @@ async def health_api(update_db: Optional[bool] = False):
 
     html_content = html_template.format(
         db_metrics="".join(
-            [f"<tr><td>{key}</td><td>{value}</td></tr>" for key, value in report["db"].items()]),
+            [
+                f"<tr><td>{key}</td><td>{value}</td></tr>"
+                for key, value in report["db"].items()
+            ]
+        ),
         counter_metrics="".join(
-            [f"<tr><td>{key}</td><td>{value}</td></tr>" for key, value in report["counters"].items()]),
+            [
+                f"<tr><td>{key}</td><td>{value}</td></tr>"
+                for key, value in report["counters"].items()
+            ]
+        ),
         time_metrics="".join(
-            [f"<tr><td>{key}</td><td>{value}</td></tr>" for key, value in report["times"].items()]),
+            [
+                f"<tr><td>{key}</td><td>{value}</td></tr>"
+                for key, value in report["times"].items()
+            ]
+        ),
         memory_metrics="".join(
-            [f"<tr><td>{key}</td><td>{value}</td></tr>" for key, value in report["memory"].items()]),
+            [
+                f"<tr><td>{key}</td><td>{value}</td></tr>"
+                for key, value in report["memory"].items()
+            ]
+        ),
         flag_metrics="".join(
-            [f"<tr><td>{key}</td><td>{value}</td></tr>" for key, value in report["flags"].items()])
+            [
+                f"<tr><td>{key}</td><td>{value}</td></tr>"
+                for key, value in report["flags"].items()
+            ]
+        ),
     )
 
     return HTMLResponse(content=html_content, status_code=200)
@@ -63,8 +83,11 @@ async def main(db_conn, embed_conn):
     dosync = False if OPTS and "nosync" in OPTS else True
     embedrt = False if OPTS and "noembedrt" in OPTS else True
     embedcu = False if OPTS and "noembedcu" in OPTS else True
-    offset = int(re.search(r'offset=(\d+)', OPTS).group(1)
-                 ) if OPTS and "offset=" in OPTS else 1000
+    offset = (
+        int(re.search(r"offset=(\d+)", OPTS).group(1))
+        if OPTS and "offset=" in OPTS
+        else 1000
+    )
 
     # Load embedder
     lp = LogPhase("loaded embedder")
@@ -77,7 +100,14 @@ async def main(db_conn, embed_conn):
     lp = LogPhase("loaded syncservice")
     log("catching up on data updates...")
     sync_service = updater.SyncService(
-        db_conn, embed_conn, telemetry, offset, doc_embedder, catchup=dosync, embed_realtime=embedrt)
+        db_conn,
+        embed_conn,
+        telemetry,
+        offset,
+        doc_embedder,
+        catchup=dosync,
+        embed_realtime=embedrt,
+    )
     updates = await sync_service.run()
     lp.stop()
 
@@ -97,8 +127,9 @@ async def main(db_conn, embed_conn):
 
     # Start API server
     telemetry.connect(db_conn, embed_conn, sync_service, encoder)
-    server = uvicorn.Server(uvicorn.Config(
-        app, host="0.0.0.0", port=PORT, log_level="info", reload=True))
+    server = uvicorn.Server(
+        uvicorn.Config(app, host="0.0.0.0", port=PORT, log_level="info", reload=True)
+    )
     uvicorn_task = asyncio.create_task(server.serve())
 
     if dosync:
@@ -115,6 +146,7 @@ async def main(db_conn, embed_conn):
     await encoder.shutdown()
     db_conn.close()
     embed_conn.close()
+
 
 if __name__ == "__main__":
     if not DB_PATH:

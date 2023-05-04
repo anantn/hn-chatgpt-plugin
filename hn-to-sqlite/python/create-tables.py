@@ -3,7 +3,8 @@ import aiosqlite
 
 
 async def create_tables(db):
-    async with db.execute("""
+    async with db.execute(
+        """
         CREATE TABLE IF NOT EXISTS items (
             id INTEGER PRIMARY KEY,
             deleted BOOLEAN,
@@ -20,10 +21,12 @@ async def create_tables(db):
             parts TEXT,
             descendants INTEGER
         ) WITHOUT ROWID;
-    """):
+    """
+    ):
         await db.commit()
 
-    async with db.execute("""
+    async with db.execute(
+        """
         CREATE TABLE IF NOT EXISTS kids (
             item INTEGER,
             kid INTEGER,
@@ -31,10 +34,12 @@ async def create_tables(db):
             FOREIGN KEY (item) REFERENCES items (id),
             FOREIGN KEY (kid) REFERENCES items (id)
         );
-    """):
+    """
+    ):
         await db.commit()
 
-    async with db.execute("""
+    async with db.execute(
+        """
         CREATE TABLE IF NOT EXISTS users (
             id TEXT PRIMARY KEY,
             created INTEGER,
@@ -42,13 +47,15 @@ async def create_tables(db):
             about TEXT,
             submitted TEXT
         );
-    """):
+    """
+    ):
         await db.commit()
 
 
 async def main():
     async with aiosqlite.connect("hn_data.db") as db:
         await create_tables(db)
+
 
 if __name__ == "__main__":
     asyncio.run(main())

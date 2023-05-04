@@ -16,34 +16,33 @@ PORT = 8000
 CORS(app, origins=[f"http://localhost:{PORT}", "https://chat.openai.com"])
 
 
-@app.route('/.well-known/ai-plugin.json')
+@app.route("/.well-known/ai-plugin.json")
 def serve_ai_plugin_json():
-    return send_from_directory('static', 'ai-plugin.json')
+    return send_from_directory("static", "ai-plugin.json")
 
 
-@app.route('/openapi.yaml')
+@app.route("/openapi.yaml")
 def serve_openapi_yaml():
-    return send_from_directory('static', 'openapi.yaml')
+    return send_from_directory("static", "openapi.yaml")
 
 
-@app.route('/yc.jpg')
+@app.route("/yc.jpg")
 def serve_yc_logo():
-    return send_from_directory('static', 'yc.jpg')
+    return send_from_directory("static", "yc.jpg")
 
 
 # Proxies to datasette
-@app.route('/api')
+@app.route("/api")
 def proxy():
-    query_params = request.query_string.decode('utf-8')
-    url = f'{PROXY_URL}?{query_params}'
+    query_params = request.query_string.decode("utf-8")
+    url = f"{PROXY_URL}?{query_params}"
 
-    response = requests.get(url, headers=request.headers,
-                            cookies=request.cookies, allow_redirects=False)
+    response = requests.get(
+        url, headers=request.headers, cookies=request.cookies, allow_redirects=False
+    )
     headers = response.headers.items()
-    headers = [header for header in headers if header[0].lower() !=
-               'transfer-encoding']
-    return Response(
-        response.content, response.status_code, headers=headers)
+    headers = [header for header in headers if header[0].lower() != "transfer-encoding"]
+    return Response(response.content, response.status_code, headers=headers)
 
 
 def print_output(process):
@@ -55,7 +54,8 @@ def print_output(process):
 def start_datasette(database_path):
     cmd = f"datasette serve -i {database_path} --setting sql_time_limit_ms 10000"
     process = subprocess.Popen(
-        cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+    )
 
     port = None
     for line in process.stdout:
@@ -69,7 +69,7 @@ def start_datasette(database_path):
     if port is not None:
         global PROXY_URL
         database_name = os.path.splitext(os.path.basename(database_path))[0]
-        PROXY_URL = f'http://127.0.0.1:{port}/{database_name}.json'
+        PROXY_URL = f"http://127.0.0.1:{port}/{database_name}.json"
         output_thread = threading.Thread(target=print_output, args=(process,))
         output_thread.daemon = True
         output_thread.start()
@@ -85,8 +85,14 @@ if __name__ == "__main__":
     database_path = sys.argv[1]
     datasette_process = start_datasette(database_path)
 
-    signal.signal(signal.SIGINT, lambda _: (print(
-        "Terminating Datasette process..."), datasette_process.terminate(), sys.exit(0)))
+    signal.signal(
+        signal.SIGINT,
+        lambda _: (
+            print("Terminating Datasette process..."),
+            datasette_process.terminate(),
+            sys.exit(0),
+        ),
+    )
     try:
         app.run(port=PORT)
     finally:

@@ -30,9 +30,12 @@ def get_db_stats(db_conn, embed_conn):
     cursor.close()
 
     cursor = embed_conn.cursor()
-    cursor.execute(
-        "SELECT MAX(story), COUNT(DISTINCT story), COUNT(*) FROM embeddings")
-    stats["db_max_story"], stats["db_total_doc"], stats["db_total_embed"] = cursor.fetchone()
+    cursor.execute("SELECT MAX(story), COUNT(DISTINCT story), COUNT(*) FROM embeddings")
+    (
+        stats["db_max_story"],
+        stats["db_total_doc"],
+        stats["db_total_embed"],
+    ) = cursor.fetchone()
     cursor.close()
     return stats
 
@@ -73,13 +76,9 @@ class Telemetry:
                 "total_affected_stories": 0,
                 "total_embedded_stories": 0,
             },
-            "times": {
-                "last_update": 0,
-                "last_embed": 0,
-                "start_time": get_time_now()
-            },
+            "times": {"last_update": 0, "last_embed": 0, "start_time": get_time_now()},
             "memory": {},
-            "flags": {}
+            "flags": {},
         }
 
     def connect(self, db_conn, embed_conn, sync_server, encoder):
@@ -108,7 +107,9 @@ class Telemetry:
         report["memory"]["free"] = psutil.virtual_memory().free >> 20
 
         report["flags"]["embed_realtime"] = self.sync_server.embed_realtime
-        report["flags"]["initial_fetch_completed"] = self.sync_server.initial_fetch_completed
+        report["flags"][
+            "initial_fetch_completed"
+        ] = self.sync_server.initial_fetch_completed
 
         if update_db:
             self.metrics["db"] = get_db_stats(self.db_conn, self.embed_conn)

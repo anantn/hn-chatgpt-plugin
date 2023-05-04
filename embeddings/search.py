@@ -21,7 +21,8 @@ class Index:
             faiss.IndexFlatL2(self.EMBEDDING_DIM),
             self.EMBEDDING_DIM,
             self.NLIST,
-            faiss.METRIC_L2)
+            faiss.METRIC_L2,
+        )
         log_with_mem("loaded embeddings into memory")
 
         self.index.train(embeddings)
@@ -48,10 +49,10 @@ class Index:
     def update_embeddings(self, story_ids):
         # log_with_mem(f"updating {len(story_ids)} embeddings")
         for story_id in story_ids:
-            self.index.remove_ids(
-                np.array([story_id], dtype=np.int64))
+            self.index.remove_ids(np.array([story_id], dtype=np.int64))
             new_embeddings, new_item_ids = self.load_embeddings(
-                f"WHERE story = {story_id}")
+                f"WHERE story = {story_id}"
+            )
             self.index.add_with_ids(new_embeddings, new_item_ids)
         # log_with_mem(f"updated faiss index!\n")
 
@@ -63,13 +64,13 @@ class Index:
         num_embeddings = cursor.fetchone()[0]
 
         # Create an empty numpy array to hold the embeddings and item IDs
-        embeddings = np.empty(
-            (num_embeddings, self.EMBEDDING_DIM), dtype=np.float32)
+        embeddings = np.empty((num_embeddings, self.EMBEDDING_DIM), dtype=np.float32)
         item_ids = np.empty(num_embeddings, dtype=np.int64)
 
         # Fetch all embeddings and their story/item IDs from the database and fill the numpy arrays
         cursor.execute(
-            f"SELECT story, embedding FROM embeddings {constraint} ORDER BY id")
+            f"SELECT story, embedding FROM embeddings {constraint} ORDER BY id"
+        )
         for i, (story_id, embedding) in enumerate(cursor.fetchall()):
             item_ids[i] = story_id
             embeddings[i] = np.frombuffer(embedding, dtype=np.float32)

@@ -1,4 +1,3 @@
-
 import time
 import requests
 
@@ -10,37 +9,64 @@ import utils
 from schema import *
 
 
-def search_results(session, ids, top_k, skip, limit, query, times,
-                   exclude_text=False, suffix=None):
+def search_results(
+    session, ids, top_k, skip, limit, query, times, exclude_text=False, suffix=None
+):
     expand = time.time()
-    limit_ids = ids[skip:skip + limit]
+    limit_ids = ids[skip : skip + limit]
     filtered = session.query(Item).filter(Item.id.in_(limit_ids))
 
     if exclude_text:
         filtered = filtered.options(
-            load_only(*[Item.id, Item.type, Item.by, Item.time, Item.url,
-                        Item.score, Item.title, Item.descendants])).all()
+            load_only(
+                *[
+                    Item.id,
+                    Item.type,
+                    Item.by,
+                    Item.time,
+                    Item.url,
+                    Item.score,
+                    Item.title,
+                    Item.descendants,
+                ]
+            )
+        ).all()
     else:
         filtered = utils.with_summary(session, filtered.all())
 
     ordered_items = sorted(filtered, key=lambda item: limit_ids.index(item.id))
     expand = time.time() - expand
-    times['fetch_time'] += expand
+    times["fetch_time"] += expand
 
-    log_msg = f"search({times['search_time']:.3f}) " \
-        f"rank({times['rank_time']:.3f}) fetch({times['fetch_time']:.3f}) " \
-        f"num({top_k} -> {len(ids)} -> {len(ordered_items)}): " \
+    log_msg = (
+        f"search({times['search_time']:.3f}) "
+        f"rank({times['rank_time']:.3f}) fetch({times['fetch_time']:.3f}) "
+        f"num({top_k} -> {len(ids)} -> {len(ordered_items)}): "
         f"'{query}'"
+    )
     if suffix:
         log_msg += f" {suffix}"
     print(log_msg)
     return ordered_items
 
 
-def search(url, session, query, exclude_text, by,
-           before_time, after_time, min_score, max_score,
-           min_comments, max_comments, sort_by, sort_order,
-           skip, limit):
+def search(
+    url,
+    session,
+    query,
+    exclude_text,
+    by,
+    before_time,
+    after_time,
+    min_score,
+    max_score,
+    min_comments,
+    max_comments,
+    sort_by,
+    sort_order,
+    skip,
+    limit,
+):
     # Build filters
     query_filters = []
     if by:
@@ -64,13 +90,17 @@ def search(url, session, query, exclude_text, by,
         top_k = 1000
     results = semantic_search(url, session, query, top_k=top_k)
     ids = [story_id for _, story_id in results["results"]]
-    times = {"search_time": results["search_time"],
-             "rank_time": results["rank_time"],
-             "fetch_time": 0}
+    times = {
+        "search_time": results["search_time"],
+        "rank_time": results["rank_time"],
+        "fetch_time": 0,
+    }
 
     # See if we can early return
     if len(query_filters) == 0 and sort_by == SortBy.relevance:
-        return search_results(session, ids, top_k, skip, limit, query, times, exclude_text)
+        return search_results(
+            session, ids, top_k, skip, limit, query, times, exclude_text
+        )
 
     # Apply filters if necessary
     times["fetch_time"] = time.time()
@@ -88,9 +118,11 @@ def search(url, session, query, exclude_text, by,
     filtered = filter_query.all()
     if sort_by == SortBy.relevance:
         filtered = sorted(filtered, key=lambda item: ids.index(item.id))
-    times['fetch_time'] = time.time() - times['fetch_time']
+    times["fetch_time"] = time.time() - times["fetch_time"]
     filtered_ids = [item[0] for item in filtered]
-    return search_results(session, filtered_ids, top_k, skip, limit, query, times, exclude_text)
+    return search_results(
+        session, filtered_ids, top_k, skip, limit, query, times, exclude_text
+    )
 
 
 def semantic_search(url, session, query, top_k=50):
@@ -120,8 +152,9 @@ def normalize(values, reverse=False):
     if max_val == min_val:
         normalized_values = [0 if reverse else 1] * len(values)
     else:
-        normalized_values = [(value - min_val) / (max_val - min_val)
-                             for value in values]
+        normalized_values = [
+            (value - min_val) / (max_val - min_val) for value in values
+        ]
         if reverse:
             normalized_values = [1 - value for value in normalized_values]
     return normalized_values
@@ -129,9 +162,10 @@ def normalize(values, reverse=False):
 
 def compute_rankings(session, query, results):
     expanded = []
-    for (story_id, distance) in results:
+    for story_id, distance in results:
         cursor = session.execute(
-            text(f"SELECT title, score, time FROM items WHERE id = {story_id}")).cursor
+            text(f"SELECT title, score, time FROM items WHERE id = {story_id}")
+        ).cursor
         title, score, age = cursor.fetchone()
         if title is None:
             continue
@@ -141,7 +175,8 @@ def compute_rankings(session, query, results):
         cursor.close()
 
     scores, ages, distances = zip(
-        *[(score, age, distance) for _, distance, _, score, age in expanded])
+        *[(score, age, distance) for _, distance, _, score, age in expanded]
+    )
     normalized_scores = normalize(scores)
     normalized_ages = normalize(ages)
     normalized_distances = normalize(distances, reverse=True)
@@ -153,7 +188,7 @@ def compute_rankings(session, query, results):
         for i, title_word in enumerate(title_words):
             if title_word in query_words:
                 # Boost based on position in the title
-                topicality += (1 / (i + 1))
+                topicality += 1 / (i + 1)
         return topicality
 
     rankings = []
@@ -162,10 +197,12 @@ def compute_rankings(session, query, results):
         title_words = [word.lower() for word in title.split()]
         topicality = calculate_topicality(query_words, title_words)
 
-        score_rank = w1 * normalized_scores[i] \
-            + w2 * normalized_distances[i] \
-            + w3 * normalized_ages[i] \
+        score_rank = (
+            w1 * normalized_scores[i]
+            + w2 * normalized_distances[i]
+            + w3 * normalized_ages[i]
             + w4 * topicality
+        )
         rankings.append((score_rank, story_id))
 
     return sorted(rankings, reverse=True)
