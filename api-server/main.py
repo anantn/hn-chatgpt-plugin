@@ -98,6 +98,8 @@ def get_items(
     skip: int = 0,
     limit: int = utils.DEFAULT_NUM,
 ):
+    if limit < 3:
+        limit = 3
     if limit > utils.MAX_NUM:
         limit = utils.MAX_NUM
     if before_time:
@@ -214,6 +216,8 @@ def get_users(
     skip: int = 0,
     limit: int = utils.DEFAULT_NUM,
 ):
+    if limit < 3:
+        limit = 3
     if limit > utils.MAX_NUM:
         limit = utils.MAX_NUM
     before_created = (

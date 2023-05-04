@@ -145,9 +145,11 @@ paths:
         schema:
           type: integer
           default: 10
+          minimum: 3
+          maximum: 50
         name: limit
         in: query
-        description: Limit the number of results returned (default 10, max 50).
+        description: Limit the number of results returned. The default value is 10, minimum is 3, and maximum is 50.
       responses:
         '200':
           description: Successful Response
