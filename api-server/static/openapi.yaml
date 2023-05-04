@@ -83,13 +83,13 @@ paths:
           type: string
         name: before_time
         in: query
-        description: Find items submitted at or before this time. You may specify this in natural language.
+        description: Find items submitted at or before this time. You may specify this in natural language, by replacing spelled-out numbers with their numerical equivalents.
       - required: false
         schema:
           type: string
         name: after_time
         in: query
-        description: Find items submitted at or after this time. You may specify this in natural language.
+        description: Find items submitted at or before this time. You may specify this in natural language, by replacing spelled-out numbers with their numerical equivalents.
       - required: false
         schema:
           type: integer
@@ -188,13 +188,13 @@ paths:
           type: string
         name: before_created
         in: query
-        description: Find users created at or before this UNIX time. You may specify the time in natural language.
+        description: Find users created at or before this UNIX time. You may specify the time in natural language, by replacing spelled-out numbers with their numerical equivalents.
       - required: false
         schema:
           type: string
         name: after_created
         in: query
-        description: Find users created at or after this UNIX time. You may specify the time in natural language.
+        description: Find users created at or after this UNIX time. You may specify the time in natural language, by replacing spelled-out numbers with their numerical equivalents.
       - required: false
         schema:
           type: integer

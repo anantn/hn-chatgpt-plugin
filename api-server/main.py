@@ -100,8 +100,13 @@ def get_items(
 ):
     if limit > utils.MAX_NUM:
         limit = utils.MAX_NUM
-    before_time = dateparser.parse(before_time).timestamp() if before_time else None
-    after_time = dateparser.parse(after_time).timestamp() if after_time else None
+    if before_time:
+        before_time = dateparser.parse(before_time)
+        before_time = before_time.timestamp() if before_time else None
+    if after_time:
+        after_time = dateparser.parse(after_time)
+        after_time = after_time.timestamp() if after_time else None
+
     session = scoped_session()
 
     # If query is not empty and type is story or comments, go the semantic search route
