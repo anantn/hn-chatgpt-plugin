@@ -76,6 +76,9 @@ def with_top_comments(session, items):
     if len(items) > 5:
         x_top = 1
         n_child = 0
+    if len(items) > 7:
+        x_top = 0
+        n_child = 0
 
     for item in items:
         item.top_comments = get_comments_text(session, item.id, x_top, n_child)
