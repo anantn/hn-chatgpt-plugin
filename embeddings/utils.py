@@ -1,4 +1,5 @@
 import os
+import copy
 import time
 import psutil
 from datetime import datetime
@@ -111,8 +112,7 @@ class Telemetry:
             self.metrics["times"]["last_embed"] = get_time_now()
 
     def report(self, update_db=False):
-        report = {}
-        report.update(self.metrics)
+        report = copy.deepcopy(self.metrics)
         report["counters"]["qsize"] = self.encoder.request_queue.qsize()
         report["counters"]["cache_size"] = len(self.encoder.cache)
         report["counters"]["cache_hits"] = self.encoder.cache_hits
