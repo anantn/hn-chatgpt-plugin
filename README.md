@@ -12,11 +12,13 @@ The full REST API exposed to ChatGPT is documented [here](https://hn.kix.in/docs
 
 ## How does it work?
 
-Semantic search looks for content that is similar in meaning to the query. This means it doesn't perform as well as keyword search at finding exact matches, but great at getting results for longer form natural language queries, which is a suitable characteristic for integration with something like ChatGPT.
+The REST API is described in this OpenAPI specification. This API is read by ChatGPT which then translates incoming queries to equivalent API calls when appropriate. Read more about this process in the [documentation for ChatGPT plugins](https://platform.openai.com/docs/plugins/introduction).
 
-Results may be improved greatly by also combining with a traditional keyword based search index (like [HN Algolia](https://hn.algolia.com/)).
+The API offeres basic metadata retrieval over stories, comments, and users in the HN corpus, but notably offers access to a semantic search index. Semantic search looks for content that is similar in meaning to the query and is more naturally suited to find content matching natural language input.
 
-Once the HN corpus was downloaded into SQLite (see the section below on how the dataset was created), the semantic search index can be made by first [creating embeddings](embeddings/embed.py) for stories and comments. These embeddings are then loaded into memory and indexed using [Faiss](https://github.com/facebookresearch/faiss/).
+Semantic search is powered by embeddings. Embeddings are a way to construct a vector representation from input data, such that similar data are closer together in an n-dimensional space.
+
+Once the HN corpus was downloaded into SQLite (see the section below on how the dataset was created), the semantic search index was created by [generating embeddings](embeddings/embed.py) for stories and comments. These embeddings are then loaded into memory and indexed using [Faiss](https://github.com/facebookresearch/faiss/).
 
 The [embeddings server](embeddings/main.py) keeps the data updated through the [HN Firebase API](https://github.com/HackerNews/API), and also regenerates and updates the embeddings index periodically. The [API server](api-server/main.py) exposes most of the basic functionality you'd expect from a wrapper on a database, and is the interface ChatGPT interacts with. Notably, the API server supports semantic search through use of the Faiss embeddings index.
 

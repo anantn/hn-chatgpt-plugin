@@ -175,24 +175,26 @@
             "interesting articles about astronomy",
             "latest breakthroughs in battery technology",
             "how do i become a great manager?",
-            "does god exist"
+            "effective strategies for overcoming procrastination"
         ]
         var placeholderText = `
         <div id="placeholder-text">
             <p>
-                This is a demo of the simple semantic search index built to serve as the backend for the Hacker
-                News ChatGPT plugin. While the demo isn't as powerful as the real integration with ChatGPT, it gives you
-                a taste of the ability of embeddings to find documents most relevant to a given natural language query.
+                This demo showcases a basic semantic search index designed to serve as the foundation for the
+                Hacker News ChatGPT plugin. Although the demo doesn't possess the full capabilities of the actual
+                ChatGPT integration, it provides a glimpse into the potential of embeddings to locate documents
+                that are highly relevant to specific natural language queries.
             <p>
-                Semantic search performs better at finding results for longer natural language queries, compared
-                to more traditional information retrieval techniques (such as
-                <a href="https://hn.algolia.com">keyword search</a>). Conversely, it struggles
-                with finding exact name matches and with very short queries (<5 words).
+                Semantic search excels at identifying results for more extensive natural language queries when
+                compared to  traditional information retrieval methods, such as 
+                <a href="https://hn.algolia.com">keyword search</a>. However, it tends to have difficulties
+                with locating exact name matches and processing very short queries (fewer than 5 words).
             </p>
             <p>
-                Note that this demo will only retrieve top 10 relevant articles but not answer the question &mdash;
-                that task is left to a large language model like GPT. You can use the API directly for a higher limit
-                and more control over filters and sorting.
+                Note that this demo will only display the top 10 pertinent articles, and will not provide
+                direct answers to the questions posed. The responsibility of fully answering the question lies with
+                a large language model like GPT-4.
+                <a href="/docs">Try out the API</a> for more control over limits, filtering, and sorting.
             </p>
             <ul id="example-queries">
                 {questions}
