@@ -1,7 +1,9 @@
 import os
 import uvicorn
 import requests
+import datetime
 
+from dateutil.relativedelta import relativedelta
 from requests.exceptions import HTTPError
 from fastapi import Query, FastAPI, HTTPException
 from starlette.responses import FileResponse
@@ -109,6 +111,13 @@ def get_items(
         before_time = utils.parse_human_time(before_time)
     if after_time:
         after_time = utils.parse_human_time(after_time)
+
+    # If upper bound was specified, but no lower bound, let's add one to one year earlier
+    if before_time and not after_time:
+        lower_bound = datetime.datetime.fromtimestamp(before_time) - relativedelta(
+            years=1
+        )
+        after_time = lower_bound.timestamp()
 
     session = scoped_session()
 
