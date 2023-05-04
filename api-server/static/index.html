@@ -267,7 +267,7 @@
 
         function updateResultsSummary(numResults, searchTime) {
             const resultsSummaryDiv = document.getElementById("results-summary");
-            resultsSummaryDiv.innerHTML = `Found ${numResults} results in ${searchTime.toFixed(2)} seconds.`;
+            resultsSummaryDiv.innerHTML = `Found results in ${searchTime.toFixed(2)} seconds, showing first ${numResults}:`;
         }
 
         function timeDifference(story) {
