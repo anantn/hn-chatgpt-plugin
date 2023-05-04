@@ -1,4 +1,5 @@
 import copy
+import dateparser
 
 from sqlalchemy.sql import text
 from fastapi.middleware.cors import CORSMiddleware
@@ -48,6 +49,22 @@ def initialize_middleware(app):
         allow_headers=["*"],
     )
     return app
+
+
+def parse_human_time(time_str):
+    if time_str:
+        time_str = " ".join(time_str.lower().split())
+        time_str = time_str.replace("couple", "2")
+        time_str = time_str.replace("a couple", "2")
+        time_str = time_str.replace("few", "3")
+        time_str = time_str.replace("a few", "3")
+        time_str = time_str.replace("several", "3")
+        time_str = time_str.replace("rignt now", "now")
+        time_str = time_str.replace("around now", "now")
+        time_str = dateparser.parse(time_str)
+        if time_str:
+            return time_str.timestamp()
+    return None
 
 
 def with_top_comments(session, items):

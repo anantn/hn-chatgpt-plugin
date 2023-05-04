@@ -1,7 +1,6 @@
 import os
 import uvicorn
 import requests
-import dateparser
 
 from uvicorn.config import LOGGING_CONFIG
 from requests.exceptions import HTTPError
@@ -103,11 +102,9 @@ def get_items(
     if limit > utils.MAX_NUM:
         limit = utils.MAX_NUM
     if before_time:
-        before_time = dateparser.parse(before_time)
-        before_time = before_time.timestamp() if before_time else None
+        before_time = utils.parse_human_time(before_time)
     if after_time:
-        after_time = dateparser.parse(after_time)
-        after_time = after_time.timestamp() if after_time else None
+        after_time = utils.parse_human_time(after_time)
 
     session = scoped_session()
 
@@ -220,12 +217,11 @@ def get_users(
         limit = 3
     if limit > utils.MAX_NUM:
         limit = utils.MAX_NUM
-    before_created = (
-        dateparser.parse(before_created).timestamp() if before_created else None
-    )
-    after_created = (
-        dateparser.parse(after_created).timestamp() if after_created else None
-    )
+    if before_created:
+        before_created = utils.parse_human_time(before_created)
+    if after_created:
+        after_created = utils.parse_human_time(after_created)
+
     session = scoped_session()
 
     # Select columns except submitted
