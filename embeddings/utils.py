@@ -55,6 +55,8 @@ def get_time_now():
 
 
 def print_since(input):
+    if input == 0:
+        return "Never"
     dt_format = "%Y-%m-%d %H:%M:%S"
     dt_obj = datetime.strptime(input, dt_format)
 
@@ -123,8 +125,8 @@ class Telemetry:
             "initial_fetch_completed"
         ] = self.sync_server.initial_fetch_completed
 
-        for key in ["last_update", "last_embed", "start_time"]:
-            report["times"][key] = print_since(self.metrics["times"][key])
+        for key in report["times"]:
+            report["times"][key] = print_since(report["times"][key])
 
         if update_db:
             self.metrics["db"] = get_db_stats(self.db_conn, self.embed_conn)
