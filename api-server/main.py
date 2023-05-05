@@ -4,10 +4,12 @@ import datetime
 
 from dateutil.relativedelta import relativedelta
 from requests.exceptions import HTTPError
-from fastapi import Query, FastAPI, HTTPException
+from fastapi import Depends, Query, FastAPI, HTTPException
 from fastapi.encoders import jsonable_encoder
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from starlette.responses import FileResponse
 from gunicorn.app.base import BaseApplication
+from prometheus_fastapi_instrumentator import Instrumentator
 
 from sqlalchemy import or_, select, create_engine
 from sqlalchemy.orm import sessionmaker, scoped_session, load_only
@@ -28,6 +30,19 @@ if not DB_PATH:
     exit()
 DATA_SERVER = f"http://localhost:{PORT+1}/search"
 
+# Metrics password. If not provided, metrics are not exposed.
+PASSWD = os.environ.get("PASSWD")
+security = HTTPBasic()
+
+
+def check_basic_auth(credentials: HTTPBasicCredentials = Depends(security)):
+    if credentials.password == PASSWD:
+        return True
+    else:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+
+# SQLachemy setup
 engine = create_engine(
     f"sqlite:///{DB_PATH}?mode=ro",
     connect_args={"check_same_thread": False},
@@ -38,9 +53,17 @@ scoped_session = scoped_session(session_factory)
 Base.metadata.create_all(bind=engine)
 app = FastAPI()
 app = utils.initialize_middleware(app)
-
+instrumentator = Instrumentator().instrument(app)
 
 # API endpoints
+
+
+@app.on_event("startup")
+async def _startup():
+    if PASSWD is not None:
+        instrumentator.expose(
+            app, include_in_schema=False, dependencies=[Depends(check_basic_auth)]
+        )
 
 
 @app.get("/.well-known/ai-plugin.json", include_in_schema=False)

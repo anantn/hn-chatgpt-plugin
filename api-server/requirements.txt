@@ -9,3 +9,4 @@ psutil
 dateparser
 gunicorn
 asgi-logger
+prometheus-fastapi-instrumentator
