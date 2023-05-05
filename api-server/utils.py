@@ -1,8 +1,10 @@
 import copy
+import logging
 import dateparser
 
 from sqlalchemy.sql import text
 from fastapi.middleware.cors import CORSMiddleware
+from asgi_logger import AccessLoggerMiddleware
 
 from schema import *
 
@@ -38,6 +40,11 @@ def initialize_middleware(app):
         return app.openapi_schema
 
     app.openapi = set_schema
+
+    logging.getLogger("uvicorn.access").handlers = []
+    app.add_middleware(
+        AccessLoggerMiddleware, format='%(h)s - %(s)s %(M)sms - "%(request_line)s"'
+    )
     app.add_middleware(
         CORSMiddleware,
         allow_origins=[

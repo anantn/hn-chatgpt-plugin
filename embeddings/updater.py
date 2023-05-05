@@ -193,8 +193,8 @@ class SyncService:
                     progress_bar.update(self.BATCH_SIZE)
                     break
                 except (
-                    aiohttp.client_exceptions.ClientConnectorError,
-                    aiohttp.client_exceptions.ServerTimeoutError,
+                    aiohttp.ClientError,
+                    aiohttp.ServerError,
                 ) as e:
                     await asyncio.sleep(retry_delay)
                     retry_count += 1

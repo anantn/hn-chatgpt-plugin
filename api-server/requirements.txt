@@ -5,9 +5,7 @@ uvicorn
 aiohttp
 aiohttp-sse-client
 tqdm
-torch
-sentence_transformers
-InstructorEmbedding
-faiss-cpu
 psutil
 dateparser
+gunicorn
+asgi-logger

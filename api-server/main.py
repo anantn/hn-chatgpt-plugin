@@ -1,17 +1,18 @@
 import os
-import uvicorn
 import requests
 import datetime
 
 from dateutil.relativedelta import relativedelta
 from requests.exceptions import HTTPError
 from fastapi import Query, FastAPI, HTTPException
+from fastapi.encoders import jsonable_encoder
 from starlette.responses import FileResponse
+from gunicorn.app.base import BaseApplication
 
 from sqlalchemy import or_, select, create_engine
 from sqlalchemy.orm import sessionmaker, scoped_session, load_only
 from typing import List, Optional
-from fastapi.encoders import jsonable_encoder
+
 
 import utils
 from search import search
@@ -263,6 +264,25 @@ def get_users(
     return session.execute(user_select).fetchall()
 
 
+class UvicornGunicornApplication(BaseApplication):
+    def __init__(self, app, options=None):
+        self.options = options or {}
+        self.application = app
+        super().__init__()
+
+    def load_config(self):
+        config = {
+            key: value
+            for key, value in self.options.items()
+            if key in self.cfg.settings and value is not None
+        }
+        for key, value in config.items():
+            self.cfg.set(key.lower(), value)
+
+    def load(self):
+        return self.application
+
+
 if __name__ == "__main__":
     try:
         print("Testing data server...")
@@ -273,4 +293,12 @@ if __name__ == "__main__":
     except (HTTPError, Exception):
         print(f"Please run the data server first!")
         exit(1)
-    uvicorn.run(app, port=PORT)
+
+    # Front uvicorn with gunicorn
+    options = {
+        "bind": f"0.0.0.0:{PORT}",
+        "workers": 8,
+        "worker_class": "uvicorn.workers.UvicornWorker",
+    }
+    gunicorn_app = UvicornGunicornApplication(app, options)
+    gunicorn_app.run()
