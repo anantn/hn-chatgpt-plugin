@@ -77,7 +77,7 @@ def get_openapi_spec():
     return FileResponse("static/openapi.yaml")
 
 
-@app.route("/legal.html", include_in_schema=False)
+@app.get("/legal.html", include_in_schema=False)
 def get_legal():
     return FileResponse("static/legal.html")
 
