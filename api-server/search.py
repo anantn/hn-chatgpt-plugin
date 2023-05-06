@@ -98,7 +98,7 @@ def search(
         query_filters.append(Item.descendants <= max_comments)
 
     # Perform semantic search
-    top_k = 50
+    top_k = 100
     if len(query_filters) > 0:
         top_k = 1000
     results = semantic_search(url, session, query, top_k=top_k)
@@ -147,7 +147,7 @@ def search(
     )
 
 
-def semantic_search(url, session, query, top_k=50):
+def semantic_search(url, session, query, top_k=100):
     query = query.strip()
 
     # Perform semantic search
