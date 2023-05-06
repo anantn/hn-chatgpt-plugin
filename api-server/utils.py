@@ -1,10 +1,11 @@
 import os
+import copy
 import time
 import openai
-import sqlite3
 import logging
 import tiktoken
 import dateparser
+import collections
 
 from sqlalchemy.sql import text
 from fastapi.middleware.cors import CORSMiddleware
@@ -32,7 +33,8 @@ EXAMPLE_QUESTIONS = [
 # OpenAI constants
 ENCODER_NAME = "cl100k_base"
 TOKEN_LIMIT = 3840  # 4096-256, leave 256 for answer and user query
-OAI_CACHE = {}
+OAI_CACHE = collections.OrderedDict()
+MAX_OAI_CACHE_SIZE = 1000000
 
 
 def num_tokens(string: str) -> int:
@@ -113,6 +115,7 @@ def with_answer(session, query, items):
     if os.environ.get("OPENAI_API_KEY") is None:
         return items
     if query in OAI_CACHE:
+        OAI_CACHE.move_to_end(query)
         items[0].answer = OAI_CACHE[query]
         return items
 
@@ -170,6 +173,9 @@ def with_answer(session, query, items):
             items[0].answer = resp["choices"][0]["message"]["content"]
             print(f"openai answer({end:.2f}s): '{items[0].answer}'")
             OAI_CACHE[query] = items[0].answer
+            OAI_CACHE.move_to_end(query)
+            if len(OAI_CACHE) > MAX_OAI_CACHE_SIZE:
+                OAI_CACHE.popitem(last=False)
 
     return items
 

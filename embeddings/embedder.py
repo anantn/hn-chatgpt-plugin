@@ -14,7 +14,7 @@ DOCUMENT_INSTRUCTION = "Represent the forum discussion on a topic:"
 QUERY_INSTRUCTION = (
     "Represent the question for retrieving supporting forum discussions: "
 )
-MAX_CACHE_SIZE = 10000
+MAX_CACHE_SIZE = 100000
 
 
 class Embedder:
