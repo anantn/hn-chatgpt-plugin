@@ -78,7 +78,7 @@ def get_openapi_spec():
 
 
 @app.route("/legal.html", include_in_schema=False)
-def serve_legal():
+def get_legal():
     return FileResponse("static/legal.html")
 
 
@@ -88,7 +88,7 @@ def get_image():
 
 
 @app.get("/", include_in_schema=False)
-def get_image():
+def get_root():
     return FileResponse("static/index.html")
 
 
