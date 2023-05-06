@@ -144,7 +144,8 @@
     <header>
         <h1>Hacker News: Simple Semantic Search</h1>
         <a href="https://github.com/anantn/hn-chatgpt-plugin">Source Code</a> |
-        <a href="/docs">API Docs & Playground</a>
+        <a href="/docs">API Docs & Playground</a> |
+        <a href="https://www.kix.in/2023/05/05/hacker-news-chatgpt-plugin/">Video Demo & Explainer Post</a>
     </header>
     <main>
         <div id="content-wrapper">
@@ -162,7 +163,7 @@
         </div>
     </main>
     <footer>
-
+        <a href="/legal.html">Privacy Policy | Terms of Service</a>
     </footer>
     <script>
         const sampleQuestions = [
@@ -181,20 +182,22 @@
         <div id="placeholder-text">
             <p>
                 This demo showcases a basic semantic search index designed to serve as the foundation for the
-                Hacker News ChatGPT plugin. Although the demo doesn't possess the full capabilities of the actual
-                ChatGPT integration, it provides a glimpse into the potential of embeddings to locate documents
-                that are highly relevant to specific natural language queries.
+                Hacker News ChatGPT plugin.
+                <a href="https://www.kix.in/2023/05/05/hacker-news-chatgpt-plugin/">See this post</a> for a video
+                demo of the plugin integration and explanation of how it was built.
+            </p>
+                Although the demo doesn't possess the full capabilities of the ChatGPT integration, it provides
+                a glimpse into the potential of embeddings to locate documents that are relevant to natural
+                language queries.
             <p>
-                Semantic search excels at identifying results for more extensive natural language queries when
-                compared to  traditional information retrieval methods, such as 
-                <a href="https://hn.algolia.com">keyword search</a>. However, it tends to have difficulties
+                Semantic search excels at identifying results compared to traditional information retrieval methods,
+                such as  <a href="https://hn.algolia.com">keyword search</a>. However, it tends to have difficulties
                 with locating exact name matches and processing very short queries (fewer than 5 words).
             </p>
             <p>
                 Note that this demo will only display the top 10 pertinent articles, and will not provide
-                direct answers to the questions posed. The responsibility of fully answering the question lies with
-                a large language model like GPT-4.
-                <a href="/docs">Try out the API</a> for more control over limits, filtering, and sorting.
+                direct answers to the questions posed. The responsibility of fully answering the question lies
+                with a large language model like GPT-3.5 or GPT-4.
             </p>
             <ul id="example-queries">
                 {questions}
