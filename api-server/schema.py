@@ -109,6 +109,8 @@ class ItemResponse(BaseModel):
     parts: Optional[List[dict]] = None
     hn_url: Optional[str] = Field(None)
 
+    answer: Optional[str] = None
+
     @validator("hn_url", pre=True, always=True)
     def set_hn_url(cls, v, values):
         id = values.get("id")

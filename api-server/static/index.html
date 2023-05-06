@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hacker News: Simple Semantic Search</title>
+    <title>Hacker News 🤝 ChatGPT Plugin</title>
     <style>
         html {
             display: flex;
@@ -78,8 +78,13 @@
             margin-top: 0.5rem;
         }
 
+        #search-input-wrapper {
+            max-width: 1325px;
+        }
+
         #results-wrapper {
             padding-top: 1rem;
+            max-width: 800px;
         }
 
         #results-summary {
@@ -90,7 +95,6 @@
 
         #results {
             padding-left: 1rem;
-            max-width: 800px;
         }
 
         .spinner {
@@ -135,6 +139,20 @@
             text-decoration: underline;
             cursor: pointer;
         }
+
+        .answer-box {
+            background-color: #f2f2f2;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+
+        .answer {
+            font-size: 18px;
+            color: #444;
+            line-height: 1.4;
+            font-style: italic;
+        }
     </style>
     <script defer data-domain="hn.kix.in" data-api="https://data.kix.in/api/event"
         src="https://www.kix.in/js/data.js"></script>
@@ -142,7 +160,7 @@
 
 <body>
     <header>
-        <h1>Hacker News: Simple Semantic Search</h1>
+        <h1>Hacker News 🤝 ChatGPT Plugin</h1>
         <a href="https://github.com/anantn/hn-chatgpt-plugin">Source Code</a> |
         <a href="/docs">API Docs & Playground</a> |
         <a href="https://www.kix.in/2023/05/05/hacker-news-chatgpt-plugin/">Video Demo & Explainer Post</a>
@@ -154,9 +172,13 @@
                     onkeydown="handleEnterKey(event)">
                 <button onclick="search()">Search</button>
                 <button onclick="clearSearch()">Clear</button>
+                <br><br>
+                <input type="checkbox" id="show-answer" style="margin-left: 10px;">
+                <label for="show-answer">Show Answer</label>
             </div>
             <div id="results-wrapper">
                 <div id="results-summary"></div>
+                <div id="answer-box" class="answer-box" style="display: none;"></div>
                 <div id="results"></div>
                 <div id="spinner" class="spinner" style="display: none;"></div>
             </div>
@@ -168,7 +190,7 @@
     <script>
         const sampleQuestions = [
             "best laptop for coding that isn't from apple",
-            "who was acquired by mozilla",
+            "what acquisitions has mozilla made",
             "how can i land a job at faang?",
             "help me find true love",
             "what's it like working at an early stage startup",
@@ -181,23 +203,16 @@
         var placeholderText = `
         <div id="placeholder-text">
             <p>
-                This demo showcases a basic semantic search index designed to serve as the foundation for the
-                Hacker News ChatGPT plugin.
-                <a href="https://www.kix.in/2023/05/05/hacker-news-chatgpt-plugin/">See this post</a> for a video
-                demo of the plugin integration and explanation of how it was built.
-            </p>
-                Although the demo doesn't possess the full capabilities of the ChatGPT integration, it provides
-                a glimpse into the potential of embeddings to locate documents that are relevant to natural
-                language queries.
-            <p>
-                Semantic search excels at identifying results compared to traditional information retrieval methods,
-                such as  <a href="https://hn.algolia.com">keyword search</a>. However, it tends to have difficulties
-                with locating exact name matches and processing very short queries (fewer than 5 words).
+                This demo is a loose approximation of the Hacker News ChatGPT plugin. To experience the real integration,
+                add this domain as an unverified plugin (if you have ChatGPT plugin access). Alternatively,
+                <a href="https://www.kix.in/2023/05/05/hacker-news-chatgpt-plugin/">check out the video demo
+                in this blog post</a>, which also explains how this plugin and integration was built!
             </p>
             <p>
-                Note that this demo will only display the top 10 pertinent articles, and will not provide
-                direct answers to the questions posed. The responsibility of fully answering the question lies
-                with a large language model like GPT-3.5 or GPT-4.
+                ⚠️ Note: the demo will only display the top 10 pertinent stories for your query by default.
+                The default mode should return results in <1 second. Check the box 'Show Answer' to trigger question
+                answering using the GPT-3.5 turbo language model. This mode will take between 5-10 seconds
+                to return an answer. Here are a few example queries to get you started:
             </p>
             <ul id="example-queries">
                 {questions}
@@ -222,6 +237,23 @@
             });
         }
         attachExampleQueries();
+        document.getElementById("show-answer").addEventListener("change", handleCheckboxChange);
+
+        function handleCheckboxChange() {
+            const showAnswer = document.getElementById("show-answer").checked;
+            const query = document.getElementById("search-input").value;
+
+            if (query) {
+                if (showAnswer) {
+                    document.getElementById("results-summary").innerHTML = "";
+                    search();
+                } else {
+                    // Hide the answer box
+                    document.getElementById("answer-box").style.display = "none";
+                    document.getElementById("answer-box").innerHTML = "";
+                }
+            }
+        }
 
         function handleEnterKey(event) {
             if (event.key === "Enter") {
@@ -230,15 +262,12 @@
         }
 
         function clearSearch() {
+            document.getElementById("show-answer").checked = false;
             document.getElementById("search-input").value = "";
+            document.getElementById("answer-box").style.display = "none";
+            document.getElementById("answer-box").innerHTML = "";
             document.getElementById("results-summary").innerHTML = "";
             attachExampleQueries();
-        }
-
-        function handleEnterKey(event) {
-            if (event.key === "Enter") {
-                search();
-            }
         }
 
         async function search() {
@@ -247,18 +276,22 @@
                 // Show the spinner
                 const resultsDiv = document.getElementById("results");
                 resultsDiv.innerHTML = '';
+                document.getElementById("answer-box").style.display = "none";
+                document.getElementById("answer-box").innerHTML = "";
                 document.getElementById("spinner").style.display = "inline-block";
+
+                // Check if the "Show Answer" checkbox is checked
+                const showAnswer = document.getElementById("show-answer").checked;
 
                 // Do the search
                 const startTime = performance.now();
-                const response = await fetch(`/items?query=${query}&exclude_text=true`);
+                const response = await fetch(`/items?query=${query}&exclude_text=true&with_answer=${showAnswer}`);
                 const endTime = performance.now();
                 const searchTime = (endTime - startTime) / 1000;
 
                 if (response.ok) {
                     const data = await response.json();
-                    displayResults(data);
-                    updateResultsSummary(data.length, searchTime);
+                    displayResults(data, searchTime);
                 } else {
                     displayError(`Error ${response.status}: ${response.statusText}`);
                 }
@@ -266,11 +299,6 @@
                 // Hide the spinner
                 document.getElementById("spinner").style.display = "none";
             }
-        }
-
-        function updateResultsSummary(numResults, searchTime) {
-            const resultsSummaryDiv = document.getElementById("results-summary");
-            resultsSummaryDiv.innerHTML = `Found results in ${searchTime.toFixed(2)} seconds, showing first ${numResults}:`;
         }
 
         function timeDifference(story) {
@@ -283,8 +311,25 @@
             return timeAgo;
         }
 
-        function displayResults(stories) {
+        function displayResults(stories, searchTime) {
+            const numResults = stories.length;
             const resultsDiv = document.getElementById("results");
+
+            var summaryMessage = `Found results in ${searchTime.toFixed(2)} seconds, showing first ${numResults}`;
+
+            const answerBox = document.getElementById("answer-box");
+            if (stories.length > 0 && stories[0].answer) {
+                const answerText = stories[0].answer.replace(/\n/g, '<br>');
+                answerBox.innerHTML = `<div class="answer">${answerText}</div>`;
+                answerBox.style.display = "block";
+                summaryMessage += ` (including answer)`;
+            } else {
+                answerBox.style.display = "none";
+            }
+
+            const resultsSummaryDiv = document.getElementById("results-summary");
+            resultsSummaryDiv.innerHTML = summaryMessage;
+
             for (const story of stories) {
                 const storyDiv = document.createElement("div");
                 storyDiv.className = "story";

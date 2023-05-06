@@ -10,7 +10,16 @@ from schema import *
 
 
 def search_results(
-    session, ids, top_k, skip, limit, query, times, exclude_text=False, suffix=None
+    session,
+    ids,
+    top_k,
+    skip,
+    limit,
+    query,
+    times,
+    exclude_text=False,
+    with_answer=False,
+    suffix=None,
 ):
     expand = time.time()
     limit_ids = ids[skip : skip + limit]
@@ -47,6 +56,9 @@ def search_results(
     if suffix:
         log_msg += f" {suffix}"
     print(log_msg)
+
+    if with_answer:
+        ordered_items = utils.with_answer(session, query, ordered_items)
     return ordered_items
 
 
@@ -66,6 +78,7 @@ def search(
     sort_order,
     skip,
     limit,
+    with_answer,
 ):
     # Build filters
     query_filters = []
@@ -99,7 +112,7 @@ def search(
     # See if we can early return
     if len(query_filters) == 0 and sort_by == SortBy.relevance:
         return search_results(
-            session, ids, top_k, skip, limit, query, times, exclude_text
+            session, ids, top_k, skip, limit, query, times, exclude_text, with_answer
         )
 
     # Apply filters if necessary
@@ -121,7 +134,16 @@ def search(
     times["fetch_time"] = time.time() - times["fetch_time"]
     filtered_ids = [item[0] for item in filtered]
     return search_results(
-        session, filtered_ids, top_k, skip, limit, query, times, exclude_text
+        session,
+        filtered_ids,
+        top_k,
+        skip,
+        limit,
+        query,
+        times,
+        exclude_text,
+        with_answer,
+        suffix=f"filters({len(query_filters)})",
     )
 
 

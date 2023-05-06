@@ -6,7 +6,7 @@ This is a ChatGPT plugin to query, analyze, and summarize insights from the [Hac
 
 If you have access to [ChatGPT plugins](https://openai.com/blog/chatgpt-plugins), just add this as an unverified plugin using the URL: https://hn.kix.in/
 
-If you don't have plugins access, you can try out the basic [semantic search demo](https://hn.kix.in/). The full REST API exposed to ChatGPT is documented [here](https://hn.kix.in/docs), where you can also interact with it.
+If you don't have plugins access, you can try out a [basic approximation of the experience here](https://hn.kix.in/). The full REST API exposed to ChatGPT is documented [here](https://hn.kix.in/docs), where you can also interact with it.
 
 👉 [Video and detailed explanation of the code](https://www.kix.in/2023/05/05/hacker-news-chatgpt-plugin/) 👈
 

@@ -1,4 +1,5 @@
 import os
+import tiktoken
 import requests
 import datetime
 
@@ -76,7 +77,7 @@ def get_openapi_spec():
     return FileResponse("static/openapi.yaml")
 
 
-@app.route("/legal.html")
+@app.route("/legal.html", include_in_schema=False)
 def serve_legal():
     return FileResponse("static/legal.html")
 
@@ -131,6 +132,7 @@ def get_items(
     sort_order: SortOrder = SortOrder.desc,
     skip: int = 0,
     limit: int = utils.DEFAULT_NUM,
+    with_answer: Optional[bool] = False,
 ):
     if limit < 3:
         limit = 3
@@ -149,6 +151,9 @@ def get_items(
         after_time = lower_bound.timestamp()
 
     session = scoped_session()
+
+    if query is not None:
+        query = " ".join(query.lower().split())
 
     # If query is not empty and type is story or comments, go the semantic search route
     if query is not None and item_type in [ItemType.story, ItemType.comment]:
@@ -169,6 +174,7 @@ def get_items(
                 sort_order,
                 skip,
                 limit,
+                with_answer,
             )
         )
 
@@ -231,9 +237,14 @@ def get_items(
         results = utils.get_poll_responses(session, results)
 
     # Add top_comments if needed
-    if exclude_text:
-        return jsonable_encoder(results)
-    return jsonable_encoder(utils.with_top_comments(session, results))
+    if not exclude_text:
+        results = utils.with_top_comments(session, results)
+
+    # Add answer if needed
+    if with_answer:
+        results = utils.with_answer(session, query, results)
+
+    return jsonable_encoder(results)
 
 
 @app.get("/user", response_model=UserResponse)

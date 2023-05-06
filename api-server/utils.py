@@ -1,5 +1,9 @@
-import copy
+import os
+import time
+import openai
+import sqlite3
 import logging
+import tiktoken
 import dateparser
 
 from sqlalchemy.sql import text
@@ -14,7 +18,7 @@ DEFAULT_NUM = 10
 MAX_NUM = 25
 EXAMPLE_QUESTIONS = [
     "best laptop for coding that isn't from apple",
-    "who was acquired by mozilla",
+    "what acquisitions has mozilla made",
     "how can i land a job at faang?",
     "help me find true love",
     "what's it like working at an early stage startup",
@@ -24,6 +28,17 @@ EXAMPLE_QUESTIONS = [
     "how do i become a great manager?",
     "effective strategies for overcoming procrastination",
 ]
+
+# OpenAI constants
+ENCODER_NAME = "cl100k_base"
+TOKEN_LIMIT = 3840  # 4096-256, leave 256 for answer and user query
+OAI_CACHE = {}
+
+
+def num_tokens(string: str) -> int:
+    encoding = tiktoken.get_encoding(ENCODER_NAME)
+    num_tokens = len(encoding.encode(string))
+    return num_tokens
 
 
 def example_questions(as_json=False):
@@ -55,6 +70,8 @@ def initialize_middleware(app):
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    tiktoken.get_encoding(ENCODER_NAME)
     return app
 
 
@@ -89,6 +106,71 @@ def with_top_comments(session, items):
 
     for item in items:
         item.top_comments = get_comments_text(session, item.id, x_top, n_child)
+    return items
+
+
+def with_answer(session, query, items):
+    if os.environ.get("OPENAI_API_KEY") is None:
+        return items
+    if query in OAI_CACHE:
+        items[0].answer = OAI_CACHE[query]
+        return items
+
+    system = (
+        "You are a helpful assistant that can answer questions accurately and concisely, "
+        "based on text from on forum discussions on Hacker News."
+    )
+    prompt = f"Given the following hacker news discussions:\n\n"
+    for item in items:
+        if item.title:
+            prompt += f"{item.title}\n"
+        if item.text:
+            prompt += f"{item.text}\n"
+    prompt += "\n"
+
+    # Keep adding comments until we run out of tokens.
+    remaining_tokens = TOKEN_LIMIT - num_tokens(system + prompt)
+    for item in items:
+        if remaining_tokens <= 0:
+            break
+
+        comments = get_comments_text(session, item.id, x_top=5, n_child=0)
+        for comment in comments:
+            comment_token_count = num_tokens(comment)
+            if remaining_tokens >= comment_token_count:
+                prompt += f"{comment}\n"
+                remaining_tokens -= comment_token_count
+            else:
+                # Truncate the last comment to fit within the token limit
+                encoding = tiktoken.get_encoding(ENCODER_NAME)
+                truncated_comment = encoding.decode(
+                    encoding.encode(comment)[:remaining_tokens]
+                )
+                prompt += f"{truncated_comment}\n"
+                remaining_tokens = 0
+                break
+
+    prompt += f"\n\nAnswer the following question: {query}?"
+
+    start = time.time()
+    resp = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=[
+            {
+                "role": "system",
+                "content": system,
+            },
+            {"role": "user", "content": prompt},
+        ],
+    )
+    end = time.time() - start
+
+    if resp and "choices" in resp and len(resp["choices"]) > 0:
+        if resp["choices"][0]["message"] and "content" in resp["choices"][0]["message"]:
+            items[0].answer = resp["choices"][0]["message"]["content"]
+            print(f"openai answer({end:.2f}s): '{items[0].answer}'")
+            OAI_CACHE[query] = items[0].answer
+
     return items
 
 
