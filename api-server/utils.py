@@ -34,7 +34,7 @@ EXAMPLE_QUESTIONS = [
 ENCODER_NAME = "cl100k_base"
 TOKEN_LIMIT = 3840  # 4096-256, leave 256 for answer and user query
 OAI_CACHE = collections.OrderedDict()
-MAX_OAI_CACHE_SIZE = 1000000
+MAX_OAI_CACHE_SIZE = 100000
 
 
 def num_tokens(string: str) -> int:
