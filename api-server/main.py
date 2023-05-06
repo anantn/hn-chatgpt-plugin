@@ -76,6 +76,11 @@ def get_openapi_spec():
     return FileResponse("static/openapi.yaml")
 
 
+@app.route("/legal.html")
+def serve_legal():
+    return FileResponse("static/legal.html")
+
+
 @app.get("/hn.jpg", include_in_schema=False)
 def get_image():
     return FileResponse("static/hn.jpg")
