@@ -188,7 +188,10 @@ def compute_rankings(session, query, results):
         cursor = session.execute(
             text(f"SELECT title, score, time FROM items WHERE id = {story_id}")
         ).cursor
-        title, score, age = cursor.fetchone()
+        story_data = cursor.fetchone()
+        if story_data is None:
+            continue
+        title, score, age = story_data[0], story_data[1], story_data[2]
         if title is None:
             continue
         score = 1 if score is None else score
