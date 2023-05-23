@@ -192,10 +192,8 @@ class SyncService:
                     self.insert_items(fetched_items)
                     progress_bar.update(self.BATCH_SIZE)
                     break
-                except (
-                    aiohttp.ClientError,
-                    aiohttp.ServerError,
-                ) as e:
+                except Exception as e:
+                    log(f"Retrying fetch_and_insert_items after execption: {e}")
                     await asyncio.sleep(retry_delay)
                     retry_count += 1
         progress_bar.close()
@@ -306,9 +304,6 @@ class SyncService:
                                 self.buffer.clear()
                             else:
                                 log(f"Buffer now at {len(self.buffer)}.")
-            except (
-                aiohttp.client_exceptions.ClientConnectorError,
-                aiohttp.client_exceptions.ClientOSError,
-                TimeoutError,
-            ) as e:
+            except Exception as e:
+                log(f"Retrying watch_updates after execption: {e}")
                 await asyncio.sleep(self.RETRY)
