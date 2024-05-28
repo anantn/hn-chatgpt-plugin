@@ -126,11 +126,10 @@ async def main(db_conn, embed_conn):
     uvicorn_task = asyncio.create_task(server.serve())
 
     # Catch up on document embeddings
+    embedcutask = None
     if embedcu:
         log("catching up on document embeddings...")
-        lp = LogPhase("embedding generation catchup")
-        await doc_embedder.process_catchup_stories(offset)
-        lp.stop()
+        embedcutask = asyncio.create_task(doc_embedder.process_catchup_stories(offset))
 
     if dosync:
         _, pending = await asyncio.wait(
@@ -142,6 +141,8 @@ async def main(db_conn, embed_conn):
         await uvicorn_task
 
     print("Exiting...")
+    if embedcutask:
+        embedcutask.cancel()
     await sync_service.shutdown()
     await encoder.shutdown()
     db_conn.close()
