@@ -111,13 +111,6 @@ async def main(db_conn, embed_conn):
     updates = await sync_service.run()
     lp.stop()
 
-    # Catch up on document embeddings
-    if embedcu:
-        log("catching up on document embeddings...")
-        lp = LogPhase("embedding generation catchup")
-        await doc_embedder.process_catchup_stories(offset)
-        lp.stop()
-
     # Load vector search
     lp = LogPhase("loaded vector search index")
     log("creating vector index...")
@@ -131,6 +124,13 @@ async def main(db_conn, embed_conn):
         uvicorn.Config(app, host="0.0.0.0", port=PORT, log_level="info", reload=True)
     )
     uvicorn_task = asyncio.create_task(server.serve())
+
+    # Catch up on document embeddings
+    if embedcu:
+        log("catching up on document embeddings...")
+        lp = LogPhase("embedding generation catchup")
+        await doc_embedder.process_catchup_stories(offset)
+        lp.stop()
 
     if dosync:
         _, pending = await asyncio.wait(
