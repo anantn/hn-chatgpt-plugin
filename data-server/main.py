@@ -81,8 +81,6 @@ async def main(db_conn, embed_conn):
 
     # Parse options if available
     dosync = False if OPTS and "nosync" in OPTS else True
-    embedrt = False if OPTS and "noembedrt" in OPTS else True
-    embedcu = False if OPTS and "noembedcu" in OPTS else True
     offset = (
         int(re.search(r"offset=(\d+)", OPTS).group(1))
         if OPTS and "offset=" in OPTS
@@ -101,12 +99,11 @@ async def main(db_conn, embed_conn):
     log("catching up on data updates...")
     sync_service = updater.SyncService(
         db_conn,
-        embed_conn,
         telemetry,
         offset,
         doc_embedder,
         catchup=dosync,
-        embed_realtime=embedrt,
+        embed_realtime=False,
     )
     updates = await sync_service.run()
     lp.stop()
@@ -125,12 +122,6 @@ async def main(db_conn, embed_conn):
     )
     uvicorn_task = asyncio.create_task(server.serve())
 
-    # Catch up on document embeddings
-    embedcutask = None
-    if embedcu:
-        log("catching up on document embeddings...")
-        embedcutask = asyncio.create_task(doc_embedder.process_catchup_stories(offset))
-
     if dosync:
         _, pending = await asyncio.wait(
             {updates, uvicorn_task}, return_when=asyncio.FIRST_COMPLETED
@@ -141,8 +132,6 @@ async def main(db_conn, embed_conn):
         await uvicorn_task
 
     print("Exiting...")
-    if embedcutask:
-        embedcutask.cancel()
     await sync_service.shutdown()
     await encoder.shutdown()
     db_conn.close()

@@ -19,15 +19,13 @@ class SyncService:
     def __init__(
         self,
         db_conn,
-        embed_conn,
         telemetry,
         offset,
         doc_encoder,
         catchup=True,
-        embed_realtime=True,
+        embed_realtime=False,
     ):
         self.db_conn = db_conn
-        self.embed_conn = embed_conn
         self.offset = offset
         self.doc_encoder = doc_encoder
         self.catchup = catchup
@@ -305,5 +303,5 @@ class SyncService:
                             else:
                                 log(f"Buffer now at {len(self.buffer)}.")
             except Exception as e:
-                log(f"Retrying watch_updates after execption: {e}")
+                log(f"Retrying watch_updates after exception: {e}")
                 await asyncio.sleep(self.RETRY)
