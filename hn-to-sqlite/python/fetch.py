@@ -22,10 +22,13 @@ async def insert_items_batch(db, items_batch):
     kids_data = []
 
     for item in items_batch:
+        deleted = item.get("deleted", None)
+        if deleted:
+            deleted = True
         items_data.append(
             (
                 item["id"],
-                item.get("deleted", None),
+                deleted,
                 item["type"],
                 item.get("by", None),
                 item["time"],
@@ -36,9 +39,11 @@ async def insert_items_batch(db, items_batch):
                 item.get("url", None),
                 item.get("score", None),
                 item.get("title", None),
-                ",".join(map(str, item.get("parts", [])))
-                if item.get("parts")
-                else None,
+                (
+                    ",".join(map(str, item.get("parts", [])))
+                    if item.get("parts")
+                    else None
+                ),
                 item.get("descendants", None),
             )
         )
