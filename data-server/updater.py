@@ -14,31 +14,24 @@ class SyncService:
     RETRY = 5  # seconds
     BATCH_SIZE = 64
     HN_URL = "https://hacker-news.firebaseio.com/v0"
-    EMBED_REALTIME_FREQ = 900  # seconds
 
     def __init__(
         self,
         db_conn,
         telemetry,
         offset,
-        doc_encoder,
         catchup=True,
-        embed_realtime=False,
     ):
         self.db_conn = db_conn
         self.offset = offset
-        self.doc_encoder = doc_encoder
         self.catchup = catchup
 
         self.buffer = []
         self.disconnect = False
         self.initial_fetch_completed = False
-        self.affected_stories = set()
         self.telemetry = telemetry
 
         self.search_index = None
-        self.embedding_task = None
-        self.embed_realtime = embed_realtime
 
     async def run(self):
         updates = None
@@ -59,20 +52,11 @@ class SyncService:
                 )
             self.initial_fetch_completed = True
 
-        if self.embed_realtime:
-            self.embedding_task = asyncio.create_task(self.process_affected_stories())
         return updates
 
     async def shutdown(self):
         log("Shutting down SSE channel...")
         self.disconnect = True
-        if self.embedding_task:
-            log("Cancelling embedding updater...")
-            try:
-                self.embedding_task.cancel()
-                await self.embedding_task
-            except asyncio.CancelledError:
-                pass
 
     def get_max_item_id_from_db(self):
         cursor = self.db_conn.cursor()
@@ -196,55 +180,55 @@ class SyncService:
                     retry_count += 1
         progress_bar.close()
 
-    def find_story_id_for_item(self, item_id):
-        cursor = self.db_conn.cursor()
-        cursor.execute(
-            """
-            WITH RECURSIVE item_hierarchy(id, parent) AS (
-                SELECT i.id, i.parent
-                FROM items i
-                WHERE i.id = ?
-                UNION ALL
-                SELECT i.id, i.parent
-                FROM items i
-                JOIN item_hierarchy ih ON i.id = ih.parent
-                WHERE i.type IN ('comment', 'story')
-            )
-            SELECT id
-            FROM item_hierarchy
-            WHERE parent IS NULL
-            """,
-            (item_id,),
-        )
-        story = cursor.fetchone()
-        cursor.close()
-        return story["id"] if story else None
+    # def find_story_id_for_item(self, item_id):
+    #     cursor = self.db_conn.cursor()
+    #     cursor.execute(
+    #         """
+    #         WITH RECURSIVE item_hierarchy(id, parent) AS (
+    #             SELECT i.id, i.parent
+    #             FROM items i
+    #             WHERE i.id = ?
+    #             UNION ALL
+    #             SELECT i.id, i.parent
+    #             FROM items i
+    #             JOIN item_hierarchy ih ON i.id = ih.parent
+    #             WHERE i.type IN ('comment', 'story')
+    #         )
+    #         SELECT id
+    #         FROM item_hierarchy
+    #         WHERE parent IS NULL
+    #         """,
+    #         (item_id,),
+    #     )
+    #     story = cursor.fetchone()
+    #     cursor.close()
+    #     return story["id"] if story else None
 
-    def extract_affected_stories(self, item_ids):
-        affected = set()
-        for item_id in item_ids:
-            story_id = self.find_story_id_for_item(item_id)
-            if story_id:
-                affected.add(story_id)
-        return affected
+    # def extract_affected_stories(self, item_ids):
+    #     affected = set()
+    #     for item_id in item_ids:
+    #         story_id = self.find_story_id_for_item(item_id)
+    #         if story_id:
+    #             affected.add(story_id)
+    #     return affected
 
-    async def process_affected_stories(self):
-        while not self.disconnect:
-            if len(self.affected_stories) > 0 and self.embed_realtime:
-                to_process = copy.copy(self.affected_stories)
-                self.telemetry.inc("total_affected_stories", len(to_process))
-                self.affected_stories.clear()
-                # log(
-                #    f"Processing affected stories for realtime embed: {len(to_process)}")
-                processed = await self.doc_encoder.process_stories(to_process)
-                self.telemetry.inc("total_embedded_stories", len(processed))
-                # log(
-                #    f"{len(processed)} affected stories were interesting, embeddings created")
-                if self.search_index:
-                    self.search_index.update_embeddings(processed)
-                else:
-                    log(f"WARNING: could not update FAISS index!")
-            await asyncio.sleep(self.EMBED_REALTIME_FREQ)
+    # async def process_affected_stories(self):
+    #     while not self.disconnect:
+    #         if len(self.affected_stories) > 0 and self.embed_realtime:
+    #             to_process = copy.copy(self.affected_stories)
+    #             self.telemetry.inc("total_affected_stories", len(to_process))
+    #             self.affected_stories.clear()
+    #             # log(
+    #             #    f"Processing affected stories for realtime embed: {len(to_process)}")
+    #             processed = await self.doc_encoder.process_stories(to_process)
+    #             self.telemetry.inc("total_embedded_stories", len(processed))
+    #             # log(
+    #             #    f"{len(processed)} affected stories were interesting, embeddings created")
+    #             if self.search_index:
+    #                 self.search_index.update_embeddings(processed)
+    #             else:
+    #                 log(f"WARNING: could not update FAISS index!")
+    #         await asyncio.sleep(self.EMBED_REALTIME_FREQ)
 
     async def process_updates(self):
         items = []
@@ -282,7 +266,7 @@ class SyncService:
                 )
                 self.insert_users(fetched_profiles)
 
-        self.affected_stories.update(self.extract_affected_stories(items))
+        # self.affected_stories.update(self.extract_affected_stories(items))
 
     async def watch_updates(self):
         while not self.disconnect:

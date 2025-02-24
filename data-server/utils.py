@@ -113,7 +113,6 @@ class Telemetry:
 
     def report(self, update_db=False):
         report = copy.deepcopy(self.metrics)
-        report["counters"]["qsize"] = self.encoder.request_queue.qsize()
         report["counters"]["cache_size"] = len(self.encoder.cache)
         report["counters"]["cache_hits"] = self.encoder.cache_hits
 

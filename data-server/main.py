@@ -19,7 +19,7 @@ PORT = 8001
 
 app = FastAPI()
 telemetry = Telemetry()
-encoder, doc_embedder, sync_service, search_index = None, None, None, None
+encoder, sync_service, search_index = None, None, None
 
 
 @app.get("/search")
@@ -69,13 +69,6 @@ async def health_api(update_db: Optional[bool] = False):
     return HTMLResponse(content=html_content, status_code=200)
 
 
-@app.post("/toggle")
-async def toggle_api():
-    global sync_service
-    sync_service.embed_realtime = not sync_service.embed_realtime
-    return {"embed_realtime": sync_service.embed_realtime}
-
-
 async def main(db_conn, embed_conn):
     global encoder, doc_embedder, sync_service, search_index
 
@@ -90,8 +83,6 @@ async def main(db_conn, embed_conn):
     # Load embedder
     lp = LogPhase("loaded embedder")
     encoder = embedder.Embedder()
-    await encoder.encode(["hello hacker news"])
-    doc_embedder = embedder.DocumentEmbedder(db_conn, embed_conn, encoder)
     lp.stop()
 
     # Start sync service
@@ -101,9 +92,7 @@ async def main(db_conn, embed_conn):
         db_conn,
         telemetry,
         offset,
-        doc_embedder,
         catchup=dosync,
-        embed_realtime=False,
     )
     updates = await sync_service.run()
     lp.stop()
@@ -111,7 +100,7 @@ async def main(db_conn, embed_conn):
     # Load vector search
     lp = LogPhase("loaded vector search index")
     log("creating vector index...")
-    search_index = search.Index(db_conn, embed_conn, encoder)
+    search_index = search.Index(embed_conn, encoder)
     sync_service.search_index = search_index
     lp.stop()
 
@@ -133,7 +122,6 @@ async def main(db_conn, embed_conn):
 
     print("Exiting...")
     await sync_service.shutdown()
-    await encoder.shutdown()
     db_conn.close()
     embed_conn.close()
 
@@ -148,7 +136,7 @@ if __name__ == "__main__":
     db_conn.row_factory = sqlite3.Row
 
     prefix = os.path.splitext(db_path)[0]
-    embed_conn = sqlite3.connect(f"{prefix}_embeddings.db")
+    embed_conn = sqlite3.connect(f"file:{prefix}_embeddings.db?mode=ro", uri=True)
     embed_conn.row_factory = sqlite3.Row
 
     print_db_stats(db_conn, embed_conn)
