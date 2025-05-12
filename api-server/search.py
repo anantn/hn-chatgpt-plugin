@@ -191,22 +191,23 @@ def compute_rankings(session, query, results):
         story_data = cursor.fetchone()
         if story_data is None:
             continue
-        title, score, age = story_data[0], story_data[1], story_data[2]
+        title, score, published = story_data[0], story_data[1], story_data[2]
         if title is None:
             continue
         score = 1 if score is None else score
-        age = 0 if age is None else age
-        expanded.append((story_id, distance, title, score, age))
+        published = 0 if published is None else published
+        expanded.append((story_id, distance, title, score, published))
         cursor.close()
 
-    scores, ages, distances = zip(
-        *[(score, age, distance) for _, distance, _, score, age in expanded]
-    )
+    _, distances, _, scores, pub_times = zip(*expanded)
     normalized_scores = normalize(scores)
-    normalized_ages = normalize(ages)
     normalized_distances = normalize(distances, reverse=True)
 
-    w1, w2, w3, w4 = 0.2, 0.25, 0.35, 0.2
+    now = time.time()
+    recencies = [now - t for t in pub_times]
+    normalized_recencies = normalize(recencies, reverse=True)
+
+    w_score, w_dist, w_recency, w_topic = 0.25, 0.25, 0.4, 0.15
 
     def calculate_topicality(query_words, title_words):
         topicality = 0
@@ -223,10 +224,10 @@ def compute_rankings(session, query, results):
         topicality = calculate_topicality(query_words, title_words)
 
         score_rank = (
-            w1 * normalized_scores[i]
-            + w2 * normalized_distances[i]
-            + w3 * normalized_ages[i]
-            + w4 * topicality
+            w_score * normalized_scores[i]
+            + w_dist * normalized_distances[i]
+            + w_recency * normalized_recencies[i]
+            + w_topic * topicality
         )
         rankings.append((score_rank, story_id))
 
