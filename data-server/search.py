@@ -9,11 +9,10 @@ class Index:
     TOP_K = 50
     NLIST = 100
     NPROBE = 35
-    EMBEDDING_DIM = 768
+    EMBEDDING_DIM = 1536
 
-    def __init__(self, db_conn, embed_conn, encoder):
+    def __init__(self, embed_conn, encoder):
         self.encoder = encoder
-        self.db_conn = db_conn
         self.embed_conn = embed_conn
 
         embeddings, item_ids = self.load_embeddings()
@@ -35,8 +34,10 @@ class Index:
         log_with_mem("built index with IDs")
 
     async def search(self, query, top_k=TOP_K):
-        req = await self.encoder.encode([query], high_priority=True)
-        D, I = self.index.search(np.array(req), top_k)
+        query_embedding = self.encoder.encode(query)
+        if not query_embedding:
+            return []
+        D, I = self.index.search(np.array([query_embedding], dtype=np.float32), top_k)
 
         unique_story_ids = []
         seen_ids = set()

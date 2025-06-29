@@ -19,7 +19,7 @@ PORT = 8001
 
 app = FastAPI()
 telemetry = Telemetry()
-encoder, doc_embedder, sync_service, search_index = None, None, None, None
+encoder, sync_service, search_index = None, None, None
 
 
 @app.get("/search")
@@ -69,20 +69,11 @@ async def health_api(update_db: Optional[bool] = False):
     return HTMLResponse(content=html_content, status_code=200)
 
 
-@app.post("/toggle")
-async def toggle_api():
-    global sync_service
-    sync_service.embed_realtime = not sync_service.embed_realtime
-    return {"embed_realtime": sync_service.embed_realtime}
-
-
 async def main(db_conn, embed_conn):
     global encoder, doc_embedder, sync_service, search_index
 
     # Parse options if available
     dosync = False if OPTS and "nosync" in OPTS else True
-    embedrt = False if OPTS and "noembedrt" in OPTS else True
-    embedcu = False if OPTS and "noembedcu" in OPTS else True
     offset = (
         int(re.search(r"offset=(\d+)", OPTS).group(1))
         if OPTS and "offset=" in OPTS
@@ -92,8 +83,6 @@ async def main(db_conn, embed_conn):
     # Load embedder
     lp = LogPhase("loaded embedder")
     encoder = embedder.Embedder()
-    await encoder.encode(["hello hacker news"])
-    doc_embedder = embedder.DocumentEmbedder(db_conn, embed_conn, encoder)
     lp.stop()
 
     # Start sync service
@@ -101,12 +90,9 @@ async def main(db_conn, embed_conn):
     log("catching up on data updates...")
     sync_service = updater.SyncService(
         db_conn,
-        embed_conn,
         telemetry,
         offset,
-        doc_embedder,
         catchup=dosync,
-        embed_realtime=embedrt,
     )
     updates = await sync_service.run()
     lp.stop()
@@ -114,7 +100,7 @@ async def main(db_conn, embed_conn):
     # Load vector search
     lp = LogPhase("loaded vector search index")
     log("creating vector index...")
-    search_index = search.Index(db_conn, embed_conn, encoder)
+    search_index = search.Index(embed_conn, encoder)
     sync_service.search_index = search_index
     lp.stop()
 
@@ -124,12 +110,6 @@ async def main(db_conn, embed_conn):
         uvicorn.Config(app, host="0.0.0.0", port=PORT, log_level="info", reload=True)
     )
     uvicorn_task = asyncio.create_task(server.serve())
-
-    # Catch up on document embeddings
-    embedcutask = None
-    if embedcu:
-        log("catching up on document embeddings...")
-        embedcutask = asyncio.create_task(doc_embedder.process_catchup_stories(offset))
 
     if dosync:
         _, pending = await asyncio.wait(
@@ -141,10 +121,7 @@ async def main(db_conn, embed_conn):
         await uvicorn_task
 
     print("Exiting...")
-    if embedcutask:
-        embedcutask.cancel()
     await sync_service.shutdown()
-    await encoder.shutdown()
     db_conn.close()
     embed_conn.close()
 
@@ -159,7 +136,7 @@ if __name__ == "__main__":
     db_conn.row_factory = sqlite3.Row
 
     prefix = os.path.splitext(db_path)[0]
-    embed_conn = sqlite3.connect(f"{prefix}_embeddings.db")
+    embed_conn = sqlite3.connect(f"file:{prefix}_embeddings.db?mode=ro", uri=True)
     embed_conn.row_factory = sqlite3.Row
 
     print_db_stats(db_conn, embed_conn)

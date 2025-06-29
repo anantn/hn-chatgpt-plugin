@@ -1,5 +1,4 @@
 import os
-import tiktoken
 import requests
 import datetime
 

@@ -32,7 +32,7 @@ async def main():
     known_missing_ids = load_missing_ids()
     connector = aiohttp.TCPConnector(limit=NUM_WORKERS)
     async with aiohttp.ClientSession(connector=connector) as session:
-        async with aiosqlite.connect("hn_data.db") as db:
+        async with aiosqlite.connect(sys.argv[1]) as db:
             sem = asyncio.Semaphore(NUM_WORKERS)
 
             async def process_item(item_id):
@@ -45,12 +45,9 @@ async def main():
                         return None
                     return item
 
-            async with aiosqlite.connect(
-                f"file:{sys.argv[1]}?mode=ro", uri=True
-            ) as db_read:
-                cursor = await db_read.execute("SELECT id FROM items")
-                rows = await cursor.fetchall()
-                existing_ids = {row[0] for row in rows}
+            cursor = await db.execute("SELECT id FROM items")
+            rows = await cursor.fetchall()
+            existing_ids = {row[0] for row in rows}
             max_id = max(existing_ids) if existing_ids else 0
             missing_ids = sorted(set(range(1, max_id + 1)) - existing_ids, reverse=True)
 
